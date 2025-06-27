@@ -13,25 +13,35 @@ export default function LoginPage() {
     e.preventDefault()
     setError('')
 
-    const res = await fetch('http://localhost:3001/auth/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password }),
-    })
+    try {
+      // B1: Gọi API login
+      const res = await fetch('http://localhost:3001/auth/login', {
+        method: 'POST',
+        credentials: 'include', // ✅ quan trọng nếu dùng cookie httpOnly
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      })
 
-    const data = await res.json()
+      const data = await res.json()
 
-    if (res.ok) {
-      localStorage.setItem('token', data.accessToken)
+      if (!res.ok) {
+        throw new Error(data.message || 'Đăng nhập thất bại')
+      }
 
-      // Giải mã JWT để lấy role (nếu có)
-      const payload = JSON.parse(atob(data.accessToken.split('.')[1]))
-      const role = payload.role || 'client'
+      // B2: Gọi API /auth/role để lấy role từ cookie
+      const roleRes = await fetch('http://localhost:3001/auth/role', {
+        method: 'GET',
+        credentials: 'include',
+      })
 
-      if (role === 'admin') router.push('/admin')
-      else router.push('/client')
-    } else {
-      setError(data.message || 'Đăng nhập thất bại')
+      const roleData = await roleRes.json()
+      const role = roleData.role
+
+      if (role === 'admin') router.push('/admin/dashboard')
+      else router.push('/')
+
+    } catch (err: any) {
+      setError(err.message)
     }
   }
 
@@ -50,6 +60,7 @@ export default function LoginPage() {
               className="w-full px-4 py-2 border rounded"
               value={email}
               onChange={e => setEmail(e.target.value)}
+              required
             />
           </div>
           <div>
@@ -59,6 +70,7 @@ export default function LoginPage() {
               className="w-full px-4 py-2 border rounded"
               value={password}
               onChange={e => setPassword(e.target.value)}
+              required
             />
           </div>
           <button
