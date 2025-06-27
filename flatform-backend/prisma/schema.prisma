@@ -6,10 +6,43 @@
 
 generator client {
   provider = "prisma-client-js"
-  output   = "../generated/prisma"
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "mysql"
   url      = env("DATABASE_URL")
 }
+
+model User {
+  id              Int       @id @default(autoincrement())
+  email           String    @unique
+  password        String
+  role            String    @default("client") // admin, client, etc.
+  initPassword    Boolean   @default(true)
+  loginFailed     Int       @default(0)
+  lastLoginAt     DateTime?
+  status          String    @default("active") // active, disabled, banned
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  profile         Profile?
+}
+
+
+model Profile {
+  id        Int     @id @default(autoincrement())
+  userId    Int     @unique
+  name      String?
+  avatar    String?
+  phone     String?
+  gender    String? // optional
+  dob       DateTime?
+
+  status    String   @default("active")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+
