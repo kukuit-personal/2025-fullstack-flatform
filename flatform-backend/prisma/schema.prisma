@@ -28,7 +28,6 @@ model User {
   profile         Profile?
 }
 
-
 model Profile {
   id        Int     @id @default(autoincrement())
   userId    Int     @unique
