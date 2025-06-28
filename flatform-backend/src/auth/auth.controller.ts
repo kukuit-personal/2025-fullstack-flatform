@@ -16,9 +16,9 @@ export class AuthController {
 
     res.cookie('token', result.accessToken, {
       httpOnly: true,
-      secure: false, // chỉ bật true ở HTTPS (production)
+      secure: false, // only set true in HTTPS (production)
       maxAge: 2 * 60 * 60 * 1000,
-      sameSite: 'lax', // hoặc 'none' nếu cần
+      sameSite: 'lax', // or 'none' if using cross-site cookies
     });
 
     return res.json({ message: 'Đăng nhập thành công' });
