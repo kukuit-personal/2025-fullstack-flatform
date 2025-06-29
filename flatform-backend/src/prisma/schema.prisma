@@ -1,5 +1,6 @@
 generator client {
   provider = "prisma-client-js"
+  output   = "../node_modules/@prisma/client"
 }
 
 datasource db {
@@ -32,6 +33,7 @@ model Users {
   email        String    @unique
   password     String
   roleId       Int
+  refreshToken String?
   initPassword Boolean   @default(true)
   loginFailed  Int       @default(0)
   lastLoginAt  DateTime?
