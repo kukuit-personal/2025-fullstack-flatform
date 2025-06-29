@@ -2,85 +2,87 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import api from '@/lib/api'
 
 export default function LoginPage() {
+  const router = useRouter()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
-  const router = useRouter()
+  const [loading, setLoading] = useState(false)
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
 
+    if (!email || !password) {
+      setError('Vui lòng nhập email và mật khẩu')
+      return
+    }
+
     try {
+      setLoading(true)
+
       // B1: Gọi API login
-      const res = await fetch('http://localhost:3001/auth/login', {
-        method: 'POST',
-        credentials: 'include', // ✅ quan trọng nếu dùng cookie httpOnly
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
-      })
+      await api.post('/auth/login', { email, password })
 
-      const data = await res.json()
+      // B2: Gọi API role
+      const roleRes = await api.get<{ role: string }>('/auth/role')
+      const role = roleRes.data.role
 
-      if (!res.ok) {
-        throw new Error(data.message || 'Đăng nhập thất bại')
-      }
-
-      // B2: Gọi API /auth/role để lấy role từ cookie
-      const roleRes = await fetch('http://localhost:3001/auth/role', {
-        method: 'GET',
-        credentials: 'include',
-      })
-
-      const roleData = await roleRes.json()
-      const role = roleData.role
-
+      // B3: Điều hướng theo role
       if (role === 'admin') router.push('/admin/dashboard')
-      else router.push('/')
+      else router.push('/client/profile')
 
     } catch (err: any) {
-      setError(err.message)
+      const msg = err.response?.data?.message || 'Đăng nhập thất bại'
+      setError(msg)
+    } finally {
+      setLoading(false)
     }
   }
 
   return (
-    <main className="flex items-center justify-center min-h-screen bg-gray-100">
-      <div className="bg-white p-8 rounded shadow-md w-full max-w-sm">
-        <h1 className="text-2xl font-semibold text-center mb-6">Đăng nhập</h1>
+    <div className="min-h-screen flex items-center justify-center bg-gray-100">
+      <form onSubmit={handleLogin} className="bg-white p-8 rounded shadow-md w-full max-w-sm">
+        <h2 className="text-2xl font-bold mb-6 text-center">Đăng nhập</h2>
 
-        {error && <p className="text-red-500 mb-4">{error}</p>}
+        {error && (
+          <div className="bg-red-100 text-red-700 p-2 mb-4 rounded text-sm">
+            {error}
+          </div>
+        )}
 
-        <form onSubmit={handleLogin} className="space-y-4">
-          <div>
-            <label className="block mb-1 font-medium">Email</label>
-            <input
-              type="email"
-              className="w-full px-4 py-2 border rounded"
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-              required
-            />
-          </div>
-          <div>
-            <label className="block mb-1 font-medium">Mật khẩu</label>
-            <input
-              type="password"
-              className="w-full px-4 py-2 border rounded"
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              required
-            />
-          </div>
-          <button
-            type="submit"
-            className="w-full bg-blue-500 text-white py-2 rounded hover:bg-blue-600"
-          >
-            Đăng nhập
-          </button>
-        </form>
-      </div>
-    </main>
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-gray-700">Email</label>
+          <input
+            type="email"
+            value={email}
+            onChange={e => setEmail(e.target.value)}
+            className="mt-1 w-full px-3 py-2 border border-gray-300 rounded shadow-sm focus:outline-none focus:ring focus:border-blue-500"
+            required
+          />
+        </div>
+
+        <div className="mb-6">
+          <label className="block text-sm font-medium text-gray-700">Mật khẩu</label>
+          <input
+            type="password"
+            value={password}
+            onChange={e => setPassword(e.target.value)}
+            className="mt-1 w-full px-3 py-2 border border-gray-300 rounded shadow-sm focus:outline-none focus:ring focus:border-blue-500"
+            required
+          />
+        </div>
+
+        <button
+          type="submit"
+          disabled={loading}
+          className="w-full bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700 transition"
+        >
+          {loading ? 'Đang đăng nhập...' : 'Đăng nhập'}
+        </button>
+      </form>
+    </div>
   )
 }
