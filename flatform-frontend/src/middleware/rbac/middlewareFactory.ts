@@ -5,22 +5,52 @@ export function middlewareFactory(allowedRoles: string[]) {
   return async function (req: NextRequest) {
     const cookie = req.headers.get('cookie') || ''
 
+    let res
+
     try {
-      // Gửi cookie httpOnly sang backend để xác thực JWT
-      const res = await api.get('/auth/role', {
-        headers: { cookie },          // 👈 Gửi cookie sang backend
-        withCredentials: true,        // 👈 Cho phép gửi cookie
+      // Gọi API kiểm tra role lần đầu
+      res = await api.get('/auth/role', {
+        headers: { cookie },
+        withCredentials: true,
       })
+    } catch (err: any) {
+      // Nếu token hết hạn (401) thì thử refresh
+      if (err.response?.status === 401) {
+        try {
+          // Gọi API refresh token
+          await api.post(
+            '/auth/refresh',
+            {},
+            {
+              headers: { cookie },
+              withCredentials: true,
+            }
+          )
 
-      const role = res.data?.role
-
-      if (!allowedRoles.includes(role)) {
+          // Gọi lại API role sau khi refresh thành công
+          res = await api.get('/auth/role', {
+            headers: { cookie },
+            withCredentials: true,
+          })
+        } catch (refreshErr) {
+          console.error('Refresh token failed in middleware:', refreshErr)
+          return NextResponse.redirect(new URL('/login', req.url))
+        }
+      } else {
+        // Các lỗi khác (403, 500,...) cũng redirect về login
+        console.error('Unexpected error in /auth/role:', err)
         return NextResponse.redirect(new URL('/login', req.url))
       }
+    }
 
-      return NextResponse.next()
-    } catch (err) {
+    const role = res?.data?.role
+
+    // Nếu role không phù hợp → redirect
+    if (!allowedRoles.includes(role)) {
       return NextResponse.redirect(new URL('/login', req.url))
     }
+
+    // Hợp lệ → tiếp tục
+    return NextResponse.next()
   }
 }
