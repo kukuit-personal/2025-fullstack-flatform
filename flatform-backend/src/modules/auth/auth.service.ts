@@ -30,8 +30,12 @@ export class AuthService {
     }
 
     const payload = { sub: user.id, role: user.role.name };
-    const accessToken = this.jwtService.sign(payload, { expiresIn: '10s' });
-    const refreshToken = this.jwtService.sign(payload, { expiresIn: '7d' });
+    const accessToken = this.jwtService.sign(payload, { expiresIn: '1h' });
+    const refreshToken = this.jwtService.sign(payload, { expiresIn: '30d' });
+
+    // await this.prisma.session.deleteMany({
+    //   where: { id: user.id },
+    // })
 
     await this.prisma.session.create({
       data: {
@@ -76,8 +80,8 @@ export class AuthService {
     await this.prisma.session.delete({ where: { id: session.id } });
 
     const payload = { sub: session.user.id, role: session.user.role.name };
-    const accessToken = this.jwtService.sign(payload, { expiresIn: '2h' });
-    const refreshToken = this.jwtService.sign(payload, { expiresIn: '7d' });
+    const accessToken = this.jwtService.sign(payload, { expiresIn: '1h' });
+    const refreshToken = this.jwtService.sign(payload, { expiresIn: '30d' });
 
     await this.prisma.session.create({
       data: {
@@ -140,7 +144,10 @@ export class AuthService {
   async getProfile(userId: number) {
     const user = await this.prisma.users.findUnique({
       where: { id: userId },
-      include: { profile: true },
+      include: { 
+        profile: true,
+        role: true,
+      },
     });
 
     if (user?.profile?.dob?.getFullYear?.() === 0) {
@@ -153,7 +160,13 @@ export class AuthService {
 
     return { 
       message: 'Thông tin người dùng đã xác thực',
-      user,
+      user: {
+        id: user.id,
+        email: user.email,
+        role: user.role?.name,
+        status: user.status,
+        profile: user.profile,
+      },
     };
   }
 }
