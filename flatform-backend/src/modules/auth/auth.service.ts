@@ -33,10 +33,6 @@ export class AuthService {
     const accessToken = this.jwtService.sign(payload, { expiresIn: '1h' });
     const refreshToken = this.jwtService.sign(payload, { expiresIn: '30d' });
 
-    // await this.prisma.session.deleteMany({
-    //   where: { id: user.id },
-    // })
-
     await this.prisma.session.create({
       data: {
         userId: user.id,

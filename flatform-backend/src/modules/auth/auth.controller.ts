@@ -19,7 +19,7 @@ export class AuthController {
     res.cookie('token', result.accessToken, {
       httpOnly: true,
       secure: false, // Chỉ bật true khi dùng HTTPS
-      maxAge: 2 * 60 * 60 * 1000, // 2h
+      maxAge: 1 * 60 * 60 * 1000, // 1h
       sameSite: 'lax',
     });
 
@@ -45,7 +45,7 @@ export class AuthController {
     res.cookie('token', result.accessToken, {
       httpOnly: true,
       secure: false,
-      maxAge: 2 * 60 * 60 * 1000,
+      maxAge: 1 * 60 * 60 * 1000,
       sameSite: 'lax',
     });
 
