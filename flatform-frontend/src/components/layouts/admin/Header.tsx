@@ -3,13 +3,16 @@ import { Bell, Menu, UserCircle, LogOut, User } from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
 import useSWR from 'swr';
+import { useAuth } from '@/hooks/auth/useAuth';
 
 const fetcher = (url: string) =>
   new Promise((res) =>
     setTimeout(() => res({ unread: Math.floor(Math.random() * 5) }), 500)
   );
 
+
 export default function Header({ setSidebarOpen }: { setSidebarOpen: (v: boolean) => void }) {
+  const { logout } = useAuth();
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const { data: notification } = useSWR('/api/notifications', fetcher, {
     refreshInterval: 10000,
@@ -44,7 +47,7 @@ export default function Header({ setSidebarOpen }: { setSidebarOpen: (v: boolean
               </Link>
               <button
                 className="flex items-center gap-2 w-full px-4 py-2 hover:bg-gray-100"
-                onClick={() => alert('Logging out')}
+                onClick={logout}
               >
                 <LogOut size={16} /> Logout
               </button>
