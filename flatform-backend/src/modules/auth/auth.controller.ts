@@ -10,7 +10,6 @@ import { JwtRefreshGuard } from './jwt-refresh.guard';
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
-  // login
   @Post('login')
   async login(@Body() loginDto: LoginDto, @Res({ passthrough: true }) res: Response) {
     const result = await this.authService.login(loginDto.email, loginDto.password);
@@ -31,7 +30,9 @@ export class AuthController {
       sameSite: 'lax',
     });
 
-    return { message: 'Đăng nhập thành công' };
+    // ✅ Trả về URL để redirect frontend tự xử lý
+    const redirect = result.role === 'admin' ? '/admin/dashboard' : '/';
+    return { redirect };
   }
 
 
@@ -77,5 +78,30 @@ export class AuthController {
   @Get('profile')
   getProfile(@Req() req) {
     return this.authService.getProfile(req.user.userId);
+  }
+
+  // logout
+  @UseGuards(AuthGuard('jwt'))
+  @Post('logout')
+  async logout(@Req() req: any, @Res({ passthrough: true }) res: Response) {
+    const userId = req.user?.userId;
+    
+    if (!userId) {
+      return { message: 'Unauthorized' };
+    }
+
+    // Xoá cookie trong controller
+    res.clearCookie('token', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+    });
+    res.clearCookie('refreshToken', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+    });
+
+    return this.authService.logout(userId);
   }
 }

@@ -49,7 +49,7 @@ export class AuthService {
       data: { lastLoginAt: new Date() },
     });
 
-    return { accessToken, refreshToken };
+    return { accessToken, refreshToken, role: user.role.name, };
   }
 
   /**
@@ -164,5 +164,15 @@ export class AuthService {
         profile: user.profile,
       },
     };
+  }
+
+   // logout
+  async logout(userId: number) {
+    // Xoá tất cả refreshToken trong bảng session liên quan đến user
+    await this.prisma.session.deleteMany({
+      where: { userId },
+    });
+
+    return { message: 'Logged out successfully' };
   }
 }

@@ -1,35 +1,27 @@
-'use client'
+'use client';
 
-import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
-import { getUserProfile } from '@/lib/auth'
-import { User } from '@/types/user'
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { useUser } from '@/hooks/auth/useUser';
 
 interface RoleGuardLayoutProps {
-  allowedRoles: string[]
-  children: React.ReactNode
+  allowedRoles: string[];
+  children: React.ReactNode;
 }
 
 export function RoleGuardLayout({ allowedRoles, children }: RoleGuardLayoutProps) {
-  const router = useRouter()
-  const [loading, setLoading] = useState(true)
-  const [user, setUser] = useState<User | null>(null)
+  const router = useRouter();
+  const { user, isLoading, isError } = useUser();
 
   useEffect(() => {
-    const check = async () => {
-      const u = await getUserProfile()
-      if (!u || !allowedRoles.includes(u.role)) {
-        router.replace('/login')
-      } else {
-        setUser(u)
-        setLoading(false)
-      }
+    if (!isLoading && (!user || !allowedRoles.includes(user.role))) {
+      router.replace('/login');
     }
+  }, [isLoading, user, allowedRoles, router]);
 
-    check()
-  }, [])
+  if (isLoading || !user) {
+    return <p className="p-4">Đang kiểm tra quyền truy cập...</p>;
+  }
 
-  if (loading) return <p className="p-4">Đang kiểm tra quyền truy cập...</p>
-
-  return <>{children}</>
+  return <>{children}</>;
 }
