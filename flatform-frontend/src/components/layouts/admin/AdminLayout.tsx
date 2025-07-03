@@ -1,9 +1,9 @@
 'use client';
 import React, { useState } from 'react';
-import Sidebar from './Sidebar';
-import Header from './Header';
-import Footer from './Footer';
-import './admin-layout.scss';
+import Sidebar from './sidebar/Sidebar';
+import Header from './header/Header';
+import Footer from './footer/Footer';
+import './admin-layout.module.scss';
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
