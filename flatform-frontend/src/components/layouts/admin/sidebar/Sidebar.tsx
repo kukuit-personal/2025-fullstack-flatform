@@ -11,6 +11,7 @@ import {
   Settings
 } from 'lucide-react';
 import { useState } from 'react';
+import './sidebar.module.scss';
 
 export default function Sidebar({ sidebarOpen, setSidebarOpen }: { sidebarOpen: boolean, setSidebarOpen: (v: boolean) => void }) {
   const pathname = usePathname();
