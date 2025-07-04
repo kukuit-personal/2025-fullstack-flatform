@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useState } from 'react';
 import useSWR from 'swr';
 import { useAuth } from '@/hooks/auth/useAuth';
+import styles from './header.module.scss';
 
 const fetcher = (url: string) =>
   new Promise((res) =>
@@ -19,7 +20,8 @@ export default function Header({ setSidebarOpen }: { setSidebarOpen: (v: boolean
   });
 
   return (
-    <header className="admin-header w-full flex justify-between items-center px-6 bg-white shadow-md border-b border-gray-200">
+    <header className={`${styles.adminHeader} w-full flex justify-between items-center px-6 bg-white shadow-md border-b border-gray-200`}
+    >
       <button className="lg:hidden" onClick={() => setSidebarOpen(true)}>
         <Menu />
       </button>

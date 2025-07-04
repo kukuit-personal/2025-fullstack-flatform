@@ -1,4 +1,4 @@
-.admin-sidebar {
+.adminSidebar {
   background-color: #1c273b;
   color: #cbd5e1;
   width: 240px;
@@ -7,7 +7,7 @@
   flex-direction: column;
   overflow-y: auto;
 
-  .admin-sidebar-header {
+  .adminSidebarHeader {
     height: 60px;
     display: flex;
     justify-content: center;
@@ -20,7 +20,7 @@
     border-bottom: 1px solid #334155;
   }
 
-  .admin-sidebar-nav {
+  .adminSidebarNav {
     flex: 1;
     overflow-y: auto;
     padding-bottom: 1rem;
