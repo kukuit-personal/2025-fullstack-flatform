@@ -1,4 +1,4 @@
-'use client'
+'use client';
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -14,7 +14,7 @@ export default function LoginPage() {
     e.preventDefault();
 
     if (!email || !password) {
-      setError('Vui lòng nhập email và mật khẩu');
+      setError(t('missing_credentials'));
       return;
     }
 
@@ -59,7 +59,7 @@ export default function LoginPage() {
           disabled={loading}
           className="w-full bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700 transition"
         >
-          {loading ? 'Đang đăng nhập...' : 'Đăng nhập'}
+          {loading ? "Đang đăng nhập" : "Đăng nhập"}
         </button>
       </form>
     </div>
