@@ -1,6 +1,10 @@
 {
   "login": {
     "login": "Đăng nhập",
-    "missing_credentials": "Vui lòng nhập email và mật khẩu"
+    "missing_credentials": "Vui lòng nhập email và mật khẩu",
+    "email_label": "Email",
+    "password_label": "Mật khẩu",
+    "submit": "Đăng nhập",
+    "submitting": "Đang đăng nhập..."
   }
 }
