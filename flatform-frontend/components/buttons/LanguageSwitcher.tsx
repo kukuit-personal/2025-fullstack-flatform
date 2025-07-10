@@ -13,9 +13,19 @@ export function LanguageSwitcher() {
   };
 
   return (
-    <div>
-      <button onClick={() => changeLang("vi")}>🇻🇳 Tiếng Việt</button>
-      <button onClick={() => changeLang("en")}>🇺🇸 English</button>
+    <div className="flex justify-center gap-1">
+      <button
+        onClick={() => changeLang("vi")}
+        className="px-4 py-2 bg-white border border-gray-300 rounded-md hover:bg-gray-100 transition"
+      >
+        🇻🇳 Tiếng Việt
+      </button>
+      <button
+        onClick={() => changeLang("en")}
+        className="px-4 py-2 bg-white border border-gray-300 rounded-md hover:bg-gray-100 transition"
+      >
+        🇺🇸 English
+      </button>
     </div>
   );
 }

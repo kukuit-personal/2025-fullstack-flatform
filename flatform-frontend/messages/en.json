@@ -1,6 +1,10 @@
 {
   "login": {
     "login": "Login",
-    "missing_credentials": "Please enter email and password"
+    "missing_credentials": "Please enter email and password",
+    "email_label": "Email",
+    "password_label": "Password",
+    "submit": "Login",
+    "submitting": "Logging in..."
   }
 }
