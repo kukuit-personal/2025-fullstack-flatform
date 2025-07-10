@@ -1,0 +1,6 @@
+{
+  "login": {
+    "login": "Login",
+    "missing_credentials": "Please enter email and password"
+  }
+}
