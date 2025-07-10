@@ -1,8 +1,8 @@
 import type { Metadata } from 'next';
 import { ReactNode } from 'react';
 import { Inter, Roboto_Mono } from 'next/font/google';
-import { NextIntlClientProvider, useMessages } from 'next-intl';
-import { setRequestLocale } from 'next-intl/server';
+import { NextIntlClientProvider, useMessages } from "next-intl";
+import { headers } from "next/headers";
 import { notFound } from 'next/navigation';
 import '@/styles/globals.css';
 
@@ -22,17 +22,10 @@ export const metadata: Metadata = {
 };
 
 // Layout đa ngôn ngữ
-export default function LocaleLayout({
-  children,
-  params: { locale }
-}: {
-  children: ReactNode;
-  params: { locale: string };
-}) {
-  setRequestLocale(locale as 'en' | 'vi');
+export default function LocaleLayout({ children }: { children: React.ReactNode }) {
   const messages = useMessages();
-
-  if (!messages) notFound(); // fallback nếu không có messages
+  const headersList = headers();
+  const locale = headersList.get("x-locale") || "vi";
 
   return (
     <html lang={locale}>

@@ -1,10 +1,19 @@
 import axios from 'axios'
 
+function getLocaleFromCookie(): string {
+  if (typeof document !== 'undefined') {
+    const match = document.cookie.match(/(?:^|; )NEXT_LOCALE=([^;]+)/);
+    return match?.[1] || 'vi';
+  }
+  return 'vi'; // fallback
+}
+
 const api = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3001',
   withCredentials: true, // gửi cookie httpOnly
   headers: {
     'Content-Type': 'application/json',
+    'Accept-Language': getLocaleFromCookie(),
   },
 })
 
