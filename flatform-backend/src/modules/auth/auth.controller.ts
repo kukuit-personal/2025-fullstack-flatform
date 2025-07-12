@@ -5,15 +5,18 @@ import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { AuthGuard } from '@nestjs/passport';
 import { JwtRefreshGuard } from './jwt-refresh.guard';
+import { Public } from '@/common/decorators/public.decorator';
 
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
+  // Login
+  @Public()
   @Post('login')
   async login(
     @Body() loginDto: LoginDto,
-    @Req() req: Request,  // 👈 thêm dòng này
+    @Req() req: Request,
     @Res({ passthrough: true }) res: Response
   ) {
 
@@ -42,7 +45,7 @@ export class AuthController {
       sameSite: 'lax',
     });
 
-    const redirect = result.role === 'admin' ? '/admin/dashboard' : '/';
+    const redirect = result.user.role === 'admin' ? '/admin/dashboard' : '/';
     return { redirect };
   }
 
@@ -53,7 +56,8 @@ export class AuthController {
       : ((req as any).socket?.remoteAddress || '');
   }
 
-  // refresh token
+  // Refresh token
+  @Public()
   @UseGuards(JwtRefreshGuard)
   @Post('refresh')
   async refresh(@Req() req: any, @Res() res: Response) {
@@ -77,27 +81,31 @@ export class AuthController {
     return res.json({ message: 'Token đã được làm mới' });
   }
 
-  // get role
+  // Get role
+  @Public()
   @UseGuards(AuthGuard('jwt'))
   @Get('role')
   getRole(@Req() req) {
     return { role: req.user.role }
   }
 
-  // register
+  // Register
+  @Public()
   @Post('register')
   register(@Body() registerDto: RegisterDto) {
     return this.authService.register(registerDto);
   }
 
-  // get profile
+  // Get profile
+  @Public()
   @UseGuards(AuthGuard('jwt'))
   @Get('profile')
   getProfile(@Req() req) {
     return this.authService.getProfile(req.user.userId);
   }
 
-  // logout
+  // Logout
+  @Public()
   @UseGuards(AuthGuard('jwt'))
   @Post('logout')
   async logout(@Req() req: any, @Res({ passthrough: true }) res: Response) {
@@ -107,7 +115,7 @@ export class AuthController {
       return { message: 'Unauthorized' };
     }
 
-    // Xoá cookie trong controller
+    // Delete cookie
     res.clearCookie('token', {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
