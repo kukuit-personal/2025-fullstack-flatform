@@ -11,30 +11,47 @@ export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Post('login')
-  async login(@Body() loginDto: LoginDto, @Res({ passthrough: true }) res: Response) {
-    const result = await this.authService.login(loginDto.email, loginDto.password);
+  async login(
+    @Body() loginDto: LoginDto,
+    @Req() req: Request,  // 👈 thêm dòng này
+    @Res({ passthrough: true }) res: Response
+  ) {
 
-    // Set access token
+    const ip = this.getClientIp(req);
+    const userAgent = req.headers['user-agent'] || '';
+
+    const result = await this.authService.login(
+      loginDto.email,
+      loginDto.password,
+      ip,             
+      userAgent                    
+    );
+
+    // Set cookies
     res.cookie('token', result.accessToken, {
       httpOnly: true,
-      secure: false, // Chỉ bật true khi dùng HTTPS
-      maxAge: 1 * 60 * 60 * 1000, // 1h
+      secure: false,
+      maxAge: 1 * 60 * 60 * 1000,
       sameSite: 'lax',
     });
 
-    // Set refresh token
     res.cookie('refreshToken', result.refreshToken, {
       httpOnly: true,
       secure: false,
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 ngày
+      maxAge: 7 * 24 * 60 * 60 * 1000,
       sameSite: 'lax',
     });
 
-    // ✅ Trả về URL để redirect frontend tự xử lý
     const redirect = result.role === 'admin' ? '/admin/dashboard' : '/';
     return { redirect };
   }
 
+  private getClientIp(req: Request): string {
+    const forwarded = req.headers['x-forwarded-for'];
+    return typeof forwarded === 'string'
+      ? forwarded.split(',')[0]
+      : ((req as any).socket?.remoteAddress || '');
+  }
 
   // refresh token
   @UseGuards(JwtRefreshGuard)

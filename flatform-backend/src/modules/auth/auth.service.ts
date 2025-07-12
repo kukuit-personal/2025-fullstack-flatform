@@ -30,9 +30,11 @@ export class AuthService {
     }
 
     const payload = { sub: user.id, role: user.role.name };
+
     const accessToken = this.jwtService.sign(payload, { expiresIn: '1h' });
     const refreshToken = this.jwtService.sign(payload, { expiresIn: '30d' });
 
+    // ✅ Lưu session
     await this.prisma.session.create({
       data: {
         userId: user.id,
@@ -40,17 +42,32 @@ export class AuthService {
         expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
         ip,
         userAgent,
-        deviceName: '', // Có thể truyền từ client nếu muốn
+        deviceName: '', // có thể mở rộng thêm nếu cần
       },
     });
 
+    // ✅ Cập nhật lastLoginAt
     await this.prisma.users.update({
       where: { id: user.id },
       data: { lastLoginAt: new Date() },
     });
 
-    return { accessToken, refreshToken, role: user.role.name, };
+    // ✅ Lưu vào bảng login_logs
+    await this.prisma.loginLog.create({
+      data: {
+        userId: user.id,
+        ip: ip ?? '',
+        userAgent: userAgent ?? '',
+      },
+    });
+
+    return {
+      accessToken,
+      refreshToken,
+      role: user.role.name,
+    };
   }
+
 
   /**
    * Làm mới token
