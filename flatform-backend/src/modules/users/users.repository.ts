@@ -25,4 +25,18 @@ export class UsersRepository {
   async deleteUser(id: number) {
     return this.prisma.users.delete({ where: { id } });
   }
+
+  async findAllWithProfile(status?: string) {
+    return this.prisma.users.findMany({
+      where: status ? { status } : undefined,
+      include: { profile: true },
+    });
+  }
+
+  async softDelete(id: number) {
+    return this.prisma.users.update({
+      where: { id },
+      data: { status: 'DISABLED' }
+    });
+  }
 } 

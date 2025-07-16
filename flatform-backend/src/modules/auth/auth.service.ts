@@ -19,7 +19,7 @@ export class AuthService {
    * @param userAgent Thông tin trình duyệt (nếu có)
    * @returns { accessToken, refreshToken }
    */
-  async login(email: string, password: string, ip?: string, userAgent?: string) {
+  async login1(email: string, password: string, ip?: string, userAgent?: string) {
     const user = await this.prisma.users.findUnique({
       where: { email },
       include: { role: true },
@@ -30,9 +30,11 @@ export class AuthService {
     }
 
     const payload = { sub: user.id, role: user.role.name };
+
     const accessToken = this.jwtService.sign(payload, { expiresIn: '1h' });
     const refreshToken = this.jwtService.sign(payload, { expiresIn: '30d' });
 
+    // ✅ Save session
     await this.prisma.session.create({
       data: {
         userId: user.id,
@@ -40,18 +42,94 @@ export class AuthService {
         expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
         ip,
         userAgent,
-        deviceName: '', // Có thể truyền từ client nếu muốn
+        deviceName: '',
       },
     });
 
+    // ✅ Cập nhật lastLoginAt
     await this.prisma.users.update({
       where: { id: user.id },
       data: { lastLoginAt: new Date() },
     });
 
-    return { accessToken, refreshToken, role: user.role.name, };
+    // ✅ Lưu vào bảng login_logs
+    await this.prisma.loginLog.create({
+      data: {
+        userId: user.id,
+        ip: ip ?? '',
+        userAgent: userAgent ?? '',
+      },
+    });
+
+    return {
+      accessToken,
+      refreshToken,
+      role: user.role.name,
+    };
   }
 
+    async login(email: string, password: string, ip?: string, userAgent?: string) {
+    const user = await this.prisma.users.findUnique({
+      where: { email },
+      include: { role: true },
+    });
+
+    if (!user || !(await bcrypt.compare(password, user.password))) {
+      throw new UnauthorizedException('Sai email hoặc mật khẩu');
+    }
+
+    const payload = {
+      sub: user.id,
+      email: user.email,
+      role: user.role.name, // ⚠️ rất quan trọng cho @Roles()
+    };
+
+    const accessToken = this.jwtService.sign(payload, {
+      expiresIn: '1h',
+    });
+
+    const refreshToken = this.jwtService.sign(payload, {
+      expiresIn: '30d',
+    });
+
+    // Lưu session refresh token
+    await this.prisma.session.create({
+      data: {
+        userId: user.id,
+        refreshToken,
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 ngày
+        ip,
+        userAgent,
+        deviceName: '',
+      },
+    });
+
+    // Cập nhật lần đăng nhập gần nhất
+    await this.prisma.users.update({
+      where: { id: user.id },
+      data: { lastLoginAt: new Date() },
+    });
+
+    // Lưu vào log đăng nhập
+    await this.prisma.loginLog.create({
+      data: {
+        userId: user.id,
+        ip: ip ?? '',
+        userAgent: userAgent ?? '',
+      },
+    });
+
+    return {
+      accessToken,
+      refreshToken,
+      user: {
+        id: user.id,
+        email: user.email,
+        role: user.role.name,
+      },
+    };
+  }
+  
   /**
    * Làm mới token
    * @param userId ID người dùng
@@ -107,7 +185,7 @@ export class AuthService {
       throw new ConflictException('Email đã tồn tại');
     }
 
-    // Lấy role theo tên (hoặc mặc định là 'client')
+    // Get role by name (or  'client')
     const role = await this.prisma.role.findUnique({
       where: { name: dto.role || 'client' },
     });
@@ -115,10 +193,10 @@ export class AuthService {
       throw new BadRequestException('Vai trò không hợp lệ');
     }
 
-    // Băm mật khẩu
+    // Hash password
     const hashedPassword = await bcrypt.hash(dto.password, 10);
 
-    // Tạo user mới
+    // Create user
     const user = await this.prisma.users.create({
       data: {
         email: dto.email.toLowerCase(),
@@ -168,7 +246,7 @@ export class AuthService {
 
    // logout
   async logout(userId: number) {
-    // Xoá tất cả refreshToken trong bảng session liên quan đến user
+    // Delete all refreshToken in session table related to user
     await this.prisma.session.deleteMany({
       where: { userId },
     });

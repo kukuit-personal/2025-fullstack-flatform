@@ -64,6 +64,7 @@ model Users {
   reviews       Review[]
   notifications Notification[]
   sessions      Session[] // NEW: quan hệ 1-n đến bảng sessions
+  loginLogs     LoginLog[]
 
   @@map("users")
 }
@@ -84,6 +85,17 @@ model Profile {
   users Users @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("profile")
+}
+
+model LoginLog {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      Users     @relation(fields: [userId], references: [id])
+  ip        String
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  @@map("login_logs")
 }
 
 model Product {
