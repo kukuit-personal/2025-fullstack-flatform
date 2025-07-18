@@ -1,4 +1,3 @@
-// app/admin/users/components/UsersTable.tsx
 'use client'
 
 import React from 'react'
@@ -14,9 +13,11 @@ import { User } from '../types'
 interface Props {
   data: User[]
   onToggleStatus: (user: User) => void
+  loadingIds?: number[]
+  disabled?: boolean
 }
 
-export default function UsersTable({ data, onToggleStatus }: Props) {
+export default function UsersTable({ data, onToggleStatus, loadingIds = [] }: Props) {
   const columns: ColumnDef<User>[] = [
     {
       accessorKey: 'id',
@@ -38,17 +39,30 @@ export default function UsersTable({ data, onToggleStatus }: Props) {
     {
       id: 'actions',
       header: 'Hành động',
-      cell: ({ row }) => (
-        <div className="flex gap-2">
-          <Link href={`/admin/users/${row.original.id}`} className="text-blue-600">Sửa</Link>
-          <button
-            onClick={() => onToggleStatus(row.original)}
-            className={row.original.status === 'active' ? 'text-red-600' : 'text-green-600'}
-          >
-            {row.original.status === 'active' ? 'Disable' : 'Kích hoạt'}
-          </button>
-        </div>
-      ),
+      cell: ({ row }) => {
+        const user = row.original
+        const isLoading = loadingIds.includes(user.id)
+
+        return (
+          <div className="flex gap-2">
+            <Link href={`/admin/users/${user.id}`} className="text-blue-600">
+              Sửa
+            </Link>
+            <button
+              onClick={() => onToggleStatus(user)}
+              disabled={isLoading}
+              className={`font-semibold transition ${
+                user.status === 'active' ? 'text-red-600' : 'text-green-600'
+              } ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+            >
+              {isLoading && 'Đang xử lý...'}
+              {!isLoading && user.status === 'active' && 'Disable'}
+              {!isLoading && user.status === 'disable' && 'Kích hoạt'}
+            </button>
+
+          </div>
+        )
+      },
     },
   ]
 
@@ -60,34 +74,33 @@ export default function UsersTable({ data, onToggleStatus }: Props) {
 
   return (
     <div className="overflow-auto rounded-lg shadow border border-gray-200 bg-white">
-        <table className="min-w-full divide-y divide-gray-200 text-sm">
-            <thead className="bg-gray-50">
-            {table.getHeaderGroups().map((headerGroup) => (
-                <tr key={headerGroup.id}>
-                {headerGroup.headers.map((header) => (
-                    <th
-                    key={header.id}
-                    className="px-4 py-3 text-left font-semibold text-gray-700 uppercase tracking-wider"
-                    >
-                    {flexRender(header.column.columnDef.header, header.getContext())}
-                    </th>
-                ))}
-                </tr>
-            ))}
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-            {table.getRowModel().rows.map((row) => (
-                <tr key={row.id} className="hover:bg-gray-50">
-                {row.getVisibleCells().map((cell) => (
-                    <td key={cell.id} className="px-4 py-3 text-gray-800 whitespace-nowrap">
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                    </td>
-                ))}
-                </tr>
-            ))}
-            </tbody>
-        </table>
-        </div>
-
+      <table className="min-w-full divide-y divide-gray-200 text-sm">
+        <thead className="bg-gray-50">
+          {table.getHeaderGroups().map((headerGroup) => (
+            <tr key={headerGroup.id}>
+              {headerGroup.headers.map((header) => (
+                <th
+                  key={header.id}
+                  className="px-4 py-3 text-left font-semibold text-gray-700 uppercase tracking-wider"
+                >
+                  {flexRender(header.column.columnDef.header, header.getContext())}
+                </th>
+              ))}
+            </tr>
+          ))}
+        </thead>
+        <tbody className="divide-y divide-gray-100">
+          {table.getRowModel().rows.map((row) => (
+            <tr key={row.id} className="hover:bg-gray-50">
+              {row.getVisibleCells().map((cell) => (
+                <td key={cell.id} className="px-4 py-3 text-gray-800 whitespace-nowrap">
+                  {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   )
 }

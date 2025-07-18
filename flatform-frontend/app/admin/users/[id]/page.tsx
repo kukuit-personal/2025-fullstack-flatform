@@ -18,10 +18,10 @@ export default function UserFormPage() {
     }
   }, [id])
 
-  if (isEdit && !user) return <p className="p-6">Đang tải...</p>
+  if (isEdit && !user) return <p>Đang tải...</p>
 
   return (
-    <div className="p-6">
+    <div>
       <h1 className="text-xl font-bold mb-4">{isEdit ? 'Cập nhật' : 'Tạo mới'} User</h1>
       <UserForm isEdit={isEdit} user={user || undefined} />
     </div>

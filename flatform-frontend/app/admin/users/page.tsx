@@ -1,4 +1,3 @@
-// app/admin/users/page.tsx
 'use client'
 
 import { useEffect, useState } from 'react'
@@ -7,6 +6,8 @@ import { useSearchParams, useRouter } from 'next/navigation'
 import api from '@/lib/api'
 import { User } from './types'
 import UsersTable from './components/UsersTable'
+import { toast } from 'react-toastify'
+import 'react-toastify/dist/ReactToastify.css'
 
 export default function UsersPage() {
   const router = useRouter()
@@ -17,6 +18,8 @@ export default function UsersPage() {
   const [status, setStatus] = useState(searchParams.get('status') || 'all')
   const [keyword, setKeyword] = useState(searchParams.get('q') || '')
   const [totalPages, setTotalPages] = useState(1)
+  const [loadingIds, setLoadingIds] = useState<number[]>([])
+  const [isTableDisabled, setIsTableDisabled] = useState(false)
 
   const fetchUsers = async () => {
     const params: any = { page, limit: 10 }
@@ -39,13 +42,39 @@ export default function UsersPage() {
   }
 
   const handleToggleStatus = async (user: User) => {
-    const newStatus = user.status === 'active' ? 'disable' : 'active'
-    await api.put(`/users/${user.id}`, { status: newStatus })
-    fetchUsers()
+    const isDisabling = user.status === 'active'
+    const actionText = isDisabling ? 'vô hiệu hóa' : 'kích hoạt lại'
+
+    if (!confirm(`Bạn có chắc chắn muốn ${actionText} user ${user.email}?`)) return
+
+    const newStatus = isDisabling ? 'disable' : 'active'
+
+    try {
+      setLoadingIds((prev) => [...prev, user.id])
+      setIsTableDisabled(true)
+
+      // 👇 Gọi API DELETE hoặc PUT tùy bạn, ở đây là DELETE
+      await api.delete(`/users/${user.id}`)
+
+      // ✅ Cập nhật local state để giữ nguyên vị trí
+      setUsers((prev) =>
+        prev.map((u) =>
+          u.id === user.id ? { ...u, status: newStatus } : u
+        )
+      )
+
+      toast.success(`Đã ${newStatus === 'disable' ? 'vô hiệu hóa' : 'kích hoạt'} user ${user.email}`)
+    } catch (err) {
+      console.error('Thao tác thất bại:', err)
+      toast.error('Thao tác thất bại')
+    } finally {
+      setLoadingIds((prev) => prev.filter((id) => id !== user.id))
+      setIsTableDisabled(false)
+    }
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="space-y-6">
       <div className="text-sm text-gray-500">
         <Link href="/admin" className="hover:underline">Admin</Link>
         <span className="mx-2">/</span>
@@ -86,13 +115,19 @@ export default function UsersPage() {
         </button>
       </form>
 
-      <UsersTable data={users} onToggleStatus={handleToggleStatus} />
+      <UsersTable
+        data={users}
+        onToggleStatus={handleToggleStatus}
+        loadingIds={loadingIds}
+        disabled={isTableDisabled}
+      />
 
       <div className="flex flex-wrap gap-2 mt-6">
         {Array.from({ length: totalPages }, (_, i) => (
           <button
             key={i}
             onClick={() => setPage(i + 1)}
+            disabled={isTableDisabled}
             className={`px-3 py-1 rounded border transition ${
               page === i + 1
                 ? 'bg-black text-white font-semibold'

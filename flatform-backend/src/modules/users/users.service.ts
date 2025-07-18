@@ -51,7 +51,7 @@ export class UsersService {
     const hashedPassword = await bcrypt.hash(dto.password, 10);
 
     return this.usersRepo.createUser({
-      private_email: dto.email,
+      email: dto.email,
       password: hashedPassword,
       roleId: Number(dto.role),
       status: 'active',
@@ -61,7 +61,7 @@ export class UsersService {
           phone: dto.phone ?? null,
           avatar: dto.avatar ?? null,
           gender: dto.gender ?? null,
-          dob: dto.dob ?? null,
+          dob: dto.dob ? new Date(dto.dob) : null,
           status: 'active',
         },
       },
@@ -80,7 +80,7 @@ export class UsersService {
           phone: dto.phone,
           avatar: dto.avatar,
           gender: dto.gender,
-          dob: dto.dob,
+          dob: dto.dob ? new Date(dto.dob) : undefined,
         },
       },
     };
