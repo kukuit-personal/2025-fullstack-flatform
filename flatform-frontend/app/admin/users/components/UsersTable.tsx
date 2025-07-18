@@ -9,6 +9,7 @@ import {
 } from '@tanstack/react-table'
 import Link from 'next/link'
 import { User } from '../types'
+import ConfirmModal from '@/components/common/ConfirmModal'
 
 interface Props {
   data: User[]
@@ -43,23 +44,44 @@ export default function UsersTable({ data, onToggleStatus, loadingIds = [] }: Pr
         const user = row.original
         const isLoading = loadingIds.includes(user.id)
 
+        const confirmTitle =
+          user.status === 'active'
+            ? 'Vô hiệu hóa người dùng'
+            : 'Kích hoạt người dùng'
+
+        const confirmMessage = `Bạn có chắc chắn muốn ${
+          user.status === 'active' ? 'vô hiệu hóa' : 'kích hoạt'
+        } user ${user.email}?`
+
         return (
-          <div className="flex gap-2">
-            <Link href={`/admin/users/${user.id}`} className="text-blue-600">
+          <div className="flex gap-2 items-center">
+            <Link href={`/admin/users/${user.id}`} className="text-blue-600 hover:underline">
               Sửa
             </Link>
-            <button
-              onClick={() => onToggleStatus(user)}
-              disabled={isLoading}
-              className={`font-semibold transition ${
-                user.status === 'active' ? 'text-red-600' : 'text-green-600'
-              } ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
-            >
-              {isLoading && 'Đang xử lý...'}
-              {!isLoading && user.status === 'active' && 'Disable'}
-              {!isLoading && user.status === 'disable' && 'Kích hoạt'}
-            </button>
 
+            {isLoading ? (
+              <button
+                disabled
+                className="font-semibold text-gray-500 opacity-50 cursor-not-allowed"
+              >
+                Đang xử lý...
+              </button>
+            ) : (
+              <ConfirmModal
+                title={confirmTitle}
+                message={confirmMessage}
+                onConfirm={() => onToggleStatus(user)}
+                trigger={
+                  <button
+                    className={`font-semibold transition hover:underline ${
+                      user.status === 'active' ? 'text-red-600' : 'text-green-600'
+                    }`}
+                  >
+                    {user.status === 'active' ? 'Disable' : 'Kích hoạt'}
+                  </button>
+                }
+              />
+            )}
           </div>
         )
       },

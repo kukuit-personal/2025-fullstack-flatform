@@ -43,18 +43,14 @@ export default function UsersPage() {
 
   const handleToggleStatus = async (user: User) => {
     const isDisabling = user.status === 'active'
-    const actionText = isDisabling ? 'vô hiệu hóa' : 'kích hoạt lại'
-
-    if (!confirm(`Bạn có chắc chắn muốn ${actionText} user ${user.email}?`)) return
-
     const newStatus = isDisabling ? 'disable' : 'active'
 
     try {
       setLoadingIds((prev) => [...prev, user.id])
       setIsTableDisabled(true)
 
-      // 👇 Gọi API DELETE hoặc PUT tùy bạn, ở đây là DELETE
-      await api.delete(`/users/${user.id}`)
+      // ✅ Gọi PATCH /users/:id/status
+      await api.patch(`/users/${user.id}/status`, { status: newStatus })
 
       // ✅ Cập nhật local state để giữ nguyên vị trí
       setUsers((prev) =>
@@ -63,7 +59,9 @@ export default function UsersPage() {
         )
       )
 
-      toast.success(`Đã ${newStatus === 'disable' ? 'vô hiệu hóa' : 'kích hoạt'} user ${user.email}`)
+      toast.success(
+        `Đã ${newStatus === 'disable' ? 'vô hiệu hóa' : 'kích hoạt'} user ${user.email}`
+      )
     } catch (err) {
       console.error('Thao tác thất bại:', err)
       toast.error('Thao tác thất bại')
@@ -76,7 +74,7 @@ export default function UsersPage() {
   return (
     <div className="space-y-6">
       <div className="text-sm text-gray-500">
-        <Link href="/admin" className="hover:underline">Admin</Link>
+        <Link href="/admin/dashboard" className="hover:underline">Admin</Link>
         <span className="mx-2">/</span>
         <span className="text-gray-800 font-medium">Users</span>
       </div>
@@ -91,11 +89,14 @@ export default function UsersPage() {
         </Link>
       </div>
 
-      <form onSubmit={handleSearch} className="flex flex-wrap items-center gap-2">
+      <form
+        onSubmit={handleSearch}
+        className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-2 w-full"
+      >
         <select
           value={status}
           onChange={(e) => setStatus(e.target.value)}
-          className="border p-2 rounded min-w-[120px]"
+          className="h-10 px-3 border rounded text-sm min-w-[120px] sm:w-auto w-full"
         >
           <option value="all">Tất cả</option>
           <option value="active">Hoạt động</option>
@@ -105,15 +106,20 @@ export default function UsersPage() {
         <input
           type="text"
           placeholder="Tìm email..."
-          className="border p-2 rounded w-64"
+          className="h-10 px-3 border rounded text-sm w-full sm:w-64"
           value={keyword}
           onChange={(e) => setKeyword(e.target.value)}
         />
 
-        <button className="px-4 py-2 bg-gray-800 hover:bg-gray-900 text-white rounded">
+        <button
+          type="submit"
+          className="h-10 px-4 bg-gray-800 hover:bg-gray-900 text-white rounded text-sm w-full sm:w-auto"
+        >
           Tìm
         </button>
       </form>
+
+
 
       <UsersTable
         data={users}
@@ -123,21 +129,24 @@ export default function UsersPage() {
       />
 
       <div className="flex flex-wrap gap-2 mt-6">
-        {Array.from({ length: totalPages }, (_, i) => (
-          <button
-            key={i}
-            onClick={() => setPage(i + 1)}
-            disabled={isTableDisabled}
-            className={`px-3 py-1 rounded border transition ${
-              page === i + 1
-                ? 'bg-black text-white font-semibold'
-                : 'bg-white hover:bg-gray-100 text-gray-700'
-            }`}
-          >
-            {i + 1}
-          </button>
-        ))}
-      </div>
+  {Array.from({ length: totalPages }, (_, i) => (
+    <button
+      key={i}
+      onClick={() => setPage(i + 1)}
+      disabled={isTableDisabled}
+      className={`w-10 h-10 text-sm flex items-center justify-center rounded border transition 
+        ${
+          page === i + 1
+            ? 'bg-black text-white font-semibold border-black'
+            : 'bg-white text-gray-700 hover:bg-gray-100 border-gray-300'
+        }`}
+    >
+      {i + 1}
+    </button>
+  ))}
+</div>
+
+
     </div>
   )
 }

@@ -1,5 +1,5 @@
 import { 
-  Body, Controller, Delete, Get, Param, Post, Put, 
+  Body, Controller, Delete, Get, Param, Post, Put, Patch, BadRequestException,
   ParseIntPipe, Query, DefaultValuePipe, HttpCode, HttpStatus
 } from '@nestjs/common';
 import { UsersService } from './users.service';
@@ -62,5 +62,20 @@ export class UsersController {
   @ApiResponse({ status: 204, description: 'User soft deleted' })
   async softDelete(@Param('id', ParseIntPipe) id: number) {
     return this.usersService.disableUser(id);
+  }
+
+  @Roles('admin')
+  @Patch(':id/status')
+  @ApiOperation({ summary: 'Update user status (active/disable)' })
+  @ApiResponse({ status: 200, description: 'User status updated' })
+  async updateStatus(
+    @Param('id', ParseIntPipe) id: number,
+    @Body('status') status: 'active' | 'disable',
+  ) {
+    if (!['active', 'disable'].includes(status)) {
+      throw new BadRequestException('Invalid status')
+    }
+
+    return this.usersService.updateStatus(id, status)
   }
 }

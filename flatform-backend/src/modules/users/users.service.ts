@@ -105,4 +105,16 @@ export class UsersService {
       },
     });
   }
+
+  async updateStatus(id: number, status: 'active' | 'disable') {
+    const user = await this.usersRepo.findById(id)
+    if (!user) throw new NotFoundException('User not found')
+
+    return this.usersRepo.updateUser(id, {
+      status,
+      profile: {
+        update: { status },
+      },
+    })
+  }
 }
