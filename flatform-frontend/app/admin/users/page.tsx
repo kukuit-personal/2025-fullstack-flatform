@@ -39,7 +39,13 @@ export default function UsersPage() {
       console.error(error)
     }
   }
+  
+  // ✅ Reset page = 1 khi status hoặc keyword thay đổi
+  useEffect(() => {
+    setPage(1)
+  }, [status, keyword])
 
+  // ✅ Gọi API khi page, status, keyword thay đổi
   useEffect(() => {
     fetchUsers()
   }, [page, status, keyword])
@@ -127,8 +133,6 @@ export default function UsersPage() {
           Tìm
         </button>
       </form>
-
-
 
       <UsersTable
         data={users}

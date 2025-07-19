@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import UserForm from '../components/UserForm'
 import api from '@/lib/api'
 import { User } from './../types'
+import Link from 'next/link'
 
 export default function UserFormPage() {
   const { id } = useParams()
@@ -21,7 +22,21 @@ export default function UserFormPage() {
   if (isEdit && !user) return <p>Đang tải...</p>
 
   return (
-    <div>
+    <div className="space-y-6">
+
+
+      <div className="text-sm text-gray-500">
+        <Link href="/admin/dashboard" className="hover:underline">Admin</Link>
+        <span className="mx-2">/</span>
+        <Link href="/admin/users" className="hover:underline">Users</Link>
+        <span className="mx-2">/</span>
+        <span className="text-gray-800 font-medium">
+          {isEdit ? 'Update' : 'Add New'} User
+        </span>
+      </div>
+
+
+
       <h1 className="text-xl font-bold mb-4">{isEdit ? 'Cập nhật' : 'Tạo mới'} User</h1>
       <UserForm isEdit={isEdit} user={user || undefined} />
     </div>
