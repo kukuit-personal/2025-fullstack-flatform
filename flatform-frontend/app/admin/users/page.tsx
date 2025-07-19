@@ -22,13 +22,22 @@ export default function UsersPage() {
   const [isTableDisabled, setIsTableDisabled] = useState(false)
 
   const fetchUsers = async () => {
-    const params: any = { page, limit: 10 }
-    if (status !== 'all') params.status = status
-    if (keyword) params.q = keyword
+    try {
+      const res = await api.get('/users/filter/search', {
+        params: {
+          status: status !== 'all' ? status : undefined,
+          email: keyword || undefined,
+          page,
+          limit: 10,
+        },
+      })
 
-    const res = await api.get('/users', { params })
-    setUsers(res.data.data)
-    setTotalPages(res.data.totalPages)
+      setUsers(res.data.data)
+      setTotalPages(res.data.totalPages || 1)
+    } catch (error) {
+      toast.error('Không thể tải danh sách người dùng')
+      console.error(error)
+    }
   }
 
   useEffect(() => {

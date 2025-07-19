@@ -117,4 +117,60 @@ export class UsersService {
       },
     })
   }
+
+
+async searchAllUsers({
+  page,
+  limit,
+  email,
+  status,
+}: {
+  page: number;
+  limit: number;
+  email?: string;
+  status?: 'all' | 'active' | 'disable';
+}) {
+  const whereCondition: any = {};
+
+  // Filter theo status
+  if (status && status !== 'all') {
+    whereCondition.status = status;
+  } else {
+    whereCondition.status = { in: ['active', 'disable'] };
+  }
+
+  // Filter theo email (Prisma 6 dùng search thay vì contains + mode)
+  if (email?.trim()) {
+    whereCondition.email = {
+      search: email.trim(),
+    };
+  }
+
+  // Truy vấn song song dữ liệu + tổng số lượng
+  const [data, total] = await this.prisma.$transaction([
+    this.prisma.users.findMany({
+      skip: (page - 1) * limit,
+      take: limit,
+      where: whereCondition,
+      orderBy: { createdAt: 'desc' },
+      include: {
+        profile: true,
+        role: true,
+      },
+    }),
+    this.prisma.users.count({ where: whereCondition }),
+  ]);
+
+  return {
+    data,
+    total,
+    page,
+    limit,
+    totalPages: Math.ceil(total / limit),
+  };
+}
+
+
+
+
 }

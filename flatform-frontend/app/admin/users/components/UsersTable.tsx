@@ -31,11 +31,25 @@ export default function UsersTable({ data, onToggleStatus, loadingIds = [] }: Pr
     {
       accessorKey: 'role.name',
       header: 'Vai trò',
-      cell: ({ row }) => row.original.role?.name || '-',
+      cell: ({ row }) => {
+      const roleName = row.original.role?.name || '-'
+      return roleName.charAt(0).toUpperCase() + roleName.slice(1)
+  }
     },
     {
       accessorKey: 'status',
       header: 'Trạng thái',
+      cell: ({ row }) => {
+        const status = row.original.status
+        const isActive = status === 'active'
+
+        return (
+          <span className={`px-2 py-1 rounded text-xs font-semibold 
+            ${isActive ? 'bg-green-100 text-green-800' : 'bg-gray-200 text-gray-700'}`}>
+            {isActive ? 'Active' : 'Disabled'}
+          </span>
+        )
+      }
     },
     {
       id: 'actions',
@@ -55,17 +69,17 @@ export default function UsersTable({ data, onToggleStatus, loadingIds = [] }: Pr
 
         return (
           <div className="flex gap-2 items-center">
-            <Link href={`/admin/users/${user.id}`} className="text-blue-600 hover:underline">
+            <Link
+              href={`/admin/users/${user.id}`}
+              className="px-2 py-1 text-xs rounded bg-blue-50 text-blue-700 hover:bg-blue-100 transition font-medium"
+            >
               Sửa
             </Link>
 
             {isLoading ? (
-              <button
-                disabled
-                className="font-semibold text-gray-500 opacity-50 cursor-not-allowed"
-              >
+              <span className="text-xs text-gray-500 px-2 py-1 bg-gray-100 rounded font-medium">
                 Đang xử lý...
-              </button>
+              </span>
             ) : (
               <ConfirmModal
                 title={confirmTitle}
@@ -73,9 +87,12 @@ export default function UsersTable({ data, onToggleStatus, loadingIds = [] }: Pr
                 onConfirm={() => onToggleStatus(user)}
                 trigger={
                   <button
-                    className={`font-semibold transition hover:underline ${
-                      user.status === 'active' ? 'text-red-600' : 'text-green-600'
-                    }`}
+                    className={`px-2 py-1 text-xs rounded font-medium transition
+                      ${
+                        user.status === 'active'
+                          ? 'bg-red-50 text-red-700 hover:bg-red-100'
+                          : 'bg-green-50 text-green-700 hover:bg-green-100'
+                      }`}
                   >
                     {user.status === 'active' ? 'Disable' : 'Kích hoạt'}
                   </button>
@@ -83,6 +100,7 @@ export default function UsersTable({ data, onToggleStatus, loadingIds = [] }: Pr
               />
             )}
           </div>
+
         )
       },
     },

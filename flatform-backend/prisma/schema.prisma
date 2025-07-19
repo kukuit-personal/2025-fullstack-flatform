@@ -66,6 +66,7 @@ model Users {
   sessions      Session[] // NEW: quan hệ 1-n đến bảng sessions
   loginLogs     LoginLog[]
 
+  @@fulltext([email])
   @@map("users")
 }
 
