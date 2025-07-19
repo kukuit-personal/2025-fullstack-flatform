@@ -27,11 +27,13 @@ export default function UserForm({ user, isEdit }: Props) {
       setForm({
         email: user.email || '',
         password: '',
-        role: user.role || '',
+        role: user.roleId?.toString() || '',
         name: user.profile?.name || '',
         phone: user.profile?.phone || '',
         gender: user.profile?.gender || '',
-        dob: user.profile?.dob || '',
+        dob: user.profile?.dob
+          ? new Date(user.profile.dob).toISOString().split('T')[0]
+          : '',
       })
     }
   }, [user])
@@ -45,13 +47,11 @@ export default function UserForm({ user, isEdit }: Props) {
     const payload = {
       email: form.email,
       password: form.password,
-      role: form.role,
-      profile: {
-        name: form.name,
-        phone: form.phone,
-        gender: form.gender,
-        dob: form.dob,
-      },
+      role: Number(form.role),
+      name: form.name,
+      phone: form.phone,
+      gender: form.gender,
+      dob: form.dob,
     }
 
     if (isEdit && user?.id) {
@@ -92,8 +92,8 @@ export default function UserForm({ user, isEdit }: Props) {
         required
       >
         <option value="">-- Vai trò --</option>
-        <option value="admin">Admin</option>
-        <option value="client">Client</option>
+        <option value="1">Admin</option>
+        <option value="2">Client</option>
       </select>
 
       <input

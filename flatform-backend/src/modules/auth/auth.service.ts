@@ -137,6 +137,7 @@ export class AuthService {
    * @returns { accessToken, refreshToken }
    */
   async refreshToken(userId: number, oldToken: string) {
+
     const session = await this.prisma.session.findUnique({
       where: { refreshToken: oldToken },
       include: { user: { include: { role: true } } },

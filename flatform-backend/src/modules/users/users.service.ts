@@ -51,7 +51,7 @@ export class UsersService {
     const hashedPassword = await bcrypt.hash(dto.password, 10);
 
     return this.usersRepo.createUser({
-      private_email: dto.email,
+      email: dto.email,
       password: hashedPassword,
       roleId: Number(dto.role),
       status: 'active',
@@ -61,7 +61,7 @@ export class UsersService {
           phone: dto.phone ?? null,
           avatar: dto.avatar ?? null,
           gender: dto.gender ?? null,
-          dob: dto.dob ?? null,
+          dob: dto.dob ? new Date(dto.dob) : null,
           status: 'active',
         },
       },
@@ -80,7 +80,7 @@ export class UsersService {
           phone: dto.phone,
           avatar: dto.avatar,
           gender: dto.gender,
-          dob: dto.dob,
+          dob: dto.dob ? new Date(dto.dob) : undefined,
         },
       },
     };
@@ -105,4 +105,72 @@ export class UsersService {
       },
     });
   }
+
+  async updateStatus(id: number, status: 'active' | 'disable') {
+    const user = await this.usersRepo.findById(id)
+    if (!user) throw new NotFoundException('User not found')
+
+    return this.usersRepo.updateUser(id, {
+      status,
+      profile: {
+        update: { status },
+      },
+    })
+  }
+
+
+async searchAllUsers({
+  page,
+  limit,
+  email,
+  status,
+}: {
+  page: number;
+  limit: number;
+  email?: string;
+  status?: 'all' | 'active' | 'disable';
+}) {
+  const whereCondition: any = {};
+
+  // Filter theo status
+  if (status && status !== 'all') {
+    whereCondition.status = status;
+  } else {
+    whereCondition.status = { in: ['active', 'disable'] };
+  }
+
+  // Filter theo email (Prisma 6 dùng search thay vì contains + mode)
+  if (email?.trim()) {
+    whereCondition.email = {
+      search: email.trim(),
+    };
+  }
+
+  // Truy vấn song song dữ liệu + tổng số lượng
+  const [data, total] = await this.prisma.$transaction([
+    this.prisma.users.findMany({
+      skip: (page - 1) * limit,
+      take: limit,
+      where: whereCondition,
+      orderBy: { createdAt: 'desc' },
+      include: {
+        profile: true,
+        role: true,
+      },
+    }),
+    this.prisma.users.count({ where: whereCondition }),
+  ]);
+
+  return {
+    data,
+    total,
+    page,
+    limit,
+    totalPages: Math.ceil(total / limit),
+  };
+}
+
+
+
+
 }

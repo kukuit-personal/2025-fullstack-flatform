@@ -1,10 +1,11 @@
 import { 
-  Body, Controller, Delete, Get, Param, Post, Put, 
+  Body, Controller, Delete, Get, Param, Post, Put, Patch, BadRequestException,
   ParseIntPipe, Query, DefaultValuePipe, HttpCode, HttpStatus
 } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { SearchUsersDto } from './dto/search-users.dto';
 import { Roles } from '@/common/decorators/roles.decorator';
 import { ApiTags, ApiOperation, ApiQuery, ApiResponse } from '@nestjs/swagger';
 
@@ -63,4 +64,38 @@ export class UsersController {
   async softDelete(@Param('id', ParseIntPipe) id: number) {
     return this.usersService.disableUser(id);
   }
+
+  @Roles('admin')
+  @Patch(':id/status')
+  @ApiOperation({ summary: 'Update user status (active/disable)' })
+  @ApiResponse({ status: 200, description: 'User status updated' })
+  async updateStatus(
+    @Param('id', ParseIntPipe) id: number,
+    @Body('status') status: 'active' | 'disable',
+  ) {
+    if (!['active', 'disable'].includes(status)) {
+      throw new BadRequestException('Invalid status')
+    }
+
+    return this.usersService.updateStatus(id, status)
+  }
+
+  @Roles('admin')
+  @Get("filter/search")
+  @ApiOperation({ summary: 'Get all users with filters and pagination' })
+  @ApiQuery({ name: 'status', required: false, enum: ['all', 'active', 'disable'], example: 'all' })
+  @ApiQuery({ name: 'email', required: false, example: 'abc@example.com' })
+  @ApiQuery({ name: 'page', required: false, example: 1 })
+  @ApiQuery({ name: 'limit', required: false, example: 10 })
+  @ApiResponse({ status: 200, description: 'Filtered users with pagination' })
+  async searchAllUsers(@Query() query: SearchUsersDto) {
+    const { page, limit, status, email } = query;
+    return this.usersService.searchAllUsers({
+      page: Number(page),
+      limit: Number(limit),
+      status,
+      email,
+    });
+  }
+
 }

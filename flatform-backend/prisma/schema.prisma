@@ -32,7 +32,7 @@ model Session {
   user   Users @relation(fields: [userId], references: [id])
   userId Int
 
-  refreshToken String   @unique
+  refreshToken String @db.VarChar(512) @unique
   expiresAt    DateTime
 
   ip         String?
@@ -66,6 +66,7 @@ model Users {
   sessions      Session[] // NEW: quan hệ 1-n đến bảng sessions
   loginLogs     LoginLog[]
 
+  @@fulltext([email])
   @@map("users")
 }
 

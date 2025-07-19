@@ -11,7 +11,11 @@ async function bootstrap() {
   app.use(cookieParser());
 
   // ✅ Validation pipe để tự động validate dữ liệu đầu vào
-  app.useGlobalPipes(new ValidationPipe());
+  app.useGlobalPipes(new ValidationPipe({
+    // whitelist: true, // chỉ nhận field được định nghĩa trong DTO
+    // forbidNonWhitelisted: true, // chặn field lạ
+    transform: true, // auto transform param (ví dụ id: string -> number)
+  }));
 
   // ✅ Đặt tiền tố cho tất cả các route
   app.setGlobalPrefix('api');
