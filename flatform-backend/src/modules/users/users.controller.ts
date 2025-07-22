@@ -9,7 +9,6 @@ import { SearchUsersDto } from './dto/search-users.dto';
 import { Roles } from '@/common/decorators/roles.decorator';
 import { ApiTags, ApiOperation, ApiQuery, ApiResponse } from '@nestjs/swagger';
 
-
 @ApiTags('Users')
 @Controller('users')
 export class UsersController {
