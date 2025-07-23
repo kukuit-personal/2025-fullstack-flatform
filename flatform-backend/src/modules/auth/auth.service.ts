@@ -68,7 +68,7 @@ export class AuthService {
     };
   }
 
-    async login(email: string, password: string, ip?: string, userAgent?: string) {
+  async login(email: string, password: string, ip?: string, userAgent?: string) {
     const user = await this.prisma.users.findUnique({
       where: { email },
       include: { role: true },
@@ -126,6 +126,7 @@ export class AuthService {
         id: user.id,
         email: user.email,
         role: user.role.name,
+        redirectUrl: user.role?.url_login_default ?? '/',
       },
     };
   }

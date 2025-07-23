@@ -45,8 +45,8 @@ export class AuthController {
       maxAge: 7 * 24 * 60 * 60 * 1000,
       sameSite: 'lax',
     });
-
-    const redirect = result.user.role === 'admin' ? '/admin/dashboard' : '/';
+    
+    const redirect = result.user.redirectUrl || '/';
     return { redirect };
   }
 
