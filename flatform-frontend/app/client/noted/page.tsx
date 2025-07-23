@@ -6,10 +6,12 @@ import { getNotes, createNote, updateNote, deleteNote } from './actions';
 import { Note, CreateNoteDto } from './types';
 import NoteCard from './components/NoteCard';
 import NoteForm from './components/NoteForm';
+import { Plus } from 'lucide-react';
 
 export default function NotedPage() {
   const [notes, setNotes] = useState<Note[]>([]);
   const [editingNote, setEditingNote] = useState<Note | null>(null);
+  const [showForm, setShowForm] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const loadNotes = async () => {
@@ -36,6 +38,7 @@ export default function NotedPage() {
     } else {
       await createNote(data);
     }
+    setShowForm(false);
     loadNotes();
   };
 
@@ -44,13 +47,32 @@ export default function NotedPage() {
     loadNotes();
   };
 
+  const handleStartCreate = () => {
+    setEditingNote(null);
+    setShowForm(true);
+  };
+
   return (
-    <div className={styles.container}>
-      <NoteForm
-        initialData={editingNote}
-        onSubmit={handleCreateOrUpdate}
-        onCancel={() => setEditingNote(null)}
-      />
+    <main className={styles.container}>
+      <div className={styles.topBar}>
+        <div className={styles.topBarTitle}>Ghi chú</div>
+        {!showForm && (
+          <button className={styles.createBtn} onClick={handleStartCreate}>
+            <Plus size={16} /> Tạo mới
+          </button>
+        )}
+      </div>
+
+      {showForm && (
+        <NoteForm
+          initialData={editingNote}
+          onSubmit={handleCreateOrUpdate}
+          onCancel={() => {
+            setEditingNote(null);
+            setShowForm(false);
+          }}
+        />
+      )}
 
       <div className={styles.listWrapper}>
         {loading ? (
@@ -60,12 +82,15 @@ export default function NotedPage() {
             <NoteCard
               key={note.id}
               note={note}
-              onEdit={() => setEditingNote(note)}
+              onEdit={() => {
+                setEditingNote(note);
+                setShowForm(true);
+              }}
               onDelete={() => handleDelete(note.id)}
             />
           ))
         )}
       </div>
-    </div>
+    </main>
   );
 }

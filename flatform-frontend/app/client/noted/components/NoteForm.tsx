@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { CreateNoteDto, Note } from '../types';
 import styles from '../noted.module.css';
+import { Plus, Edit } from 'lucide-react';
 
 interface Props {
   initialData?: Note | null;
@@ -52,7 +53,17 @@ const NoteForm: React.FC<Props> = ({ initialData, onSubmit, onCancel }) => {
           </button>
         )}
         <button type="submit" className={styles.saveBtn}>
-          {initialData ? 'Cập nhật' : 'Tạo mới'}
+          {initialData ? (
+            <>
+              <Edit size={16} style={{ marginRight: '0.5rem' }} />
+              Cập nhật
+            </>
+          ) : (
+            <>
+              <Plus size={16} style={{ marginRight: '0.5rem' }} />
+              Tạo mới
+            </>
+          )}
         </button>
       </div>
     </form>
