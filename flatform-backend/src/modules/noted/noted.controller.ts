@@ -31,7 +31,7 @@ export class NotedController {
     @Post()
     @ApiOperation({ summary: 'Tạo ghi chú mới' })
     async createNote(@Req() req, @Body() dto: CreateNoteDto) {
-        const userId = req.user.userId;
+        const userId = req.user.id;
         return this.notedService.createNote(userId, dto);
     }
 
@@ -43,7 +43,7 @@ export class NotedController {
     @Req() req,
     @Query() query: SearchNotesDto,
     ) {
-        const userId = req.user.userId;
+        const userId = req.user.id;
         return this.notedService.getUserNotes(userId, query);
     }
 
@@ -56,7 +56,7 @@ export class NotedController {
 
     @Param('id', ParseIntPipe) noteId: number,
     ) {
-        const userId = req.user.userId;
+        const userId = req.user.id;
         return this.notedService.getNoteDetail(noteId, userId);
     }
 
@@ -69,7 +69,7 @@ export class NotedController {
     @Param('id', ParseIntPipe) noteId: number,
     @Body() dto: UpdateNoteDto,
     ) {
-        const userId = req.user.userId;
+        const userId = req.user.id;
         return this.notedService.updateNote(noteId, userId, dto);
     }
 
@@ -82,7 +82,7 @@ export class NotedController {
     @Req() req,
     @Param('id', ParseIntPipe) noteId: number,
     ) {
-        const userId = req.user.userId;
+        const userId = req.user.id;
         await this.notedService.softDeleteNote(noteId, userId);
     }
 

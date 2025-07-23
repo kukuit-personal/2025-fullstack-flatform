@@ -103,7 +103,7 @@ export class AuthController {
   @UseGuards(AuthGuard('jwt'))
   @Get('profile')
   getProfile(@Req() req) {
-    return this.authService.getProfile(req.user.userId);
+    return this.authService.getProfile(req.user.id);
   }
 
   // Logout
@@ -111,7 +111,7 @@ export class AuthController {
   @UseGuards(AuthGuard('jwt'))
   @Post('logout')
   async logout(@Req() req: any, @Res({ passthrough: true }) res: Response) {
-    const userId = req.user?.userId;
+    const userId = req.user?.id;
     
     if (!userId) {
       return { message: 'Unauthorized' };
