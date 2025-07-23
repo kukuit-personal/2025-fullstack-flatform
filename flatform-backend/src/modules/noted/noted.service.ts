@@ -13,79 +13,85 @@ export class NotedService {
       private readonly prisma: PrismaService,
     ) {}
 
-  async createNote(userId: number, dto: CreateNoteDto) {
-    return this.notedRepo.createNote({
-      title: dto.title,
-      content: dto.content ?? '',
-      color: dto.color,
-      isFavorite: dto.isFavorite ?? false,
-      isArchived: dto.isArchived ?? false,
-      sortOrder: 0,
-      user: { connect: { id: userId } },
-      category: dto.categoryId
-        ? { connect: { id: dto.categoryId } }
-        : undefined,
-      parent: dto.parentId ? { connect: { id: dto.parentId } } : undefined,
-    });
+    async createNote(userId: number, dto: CreateNoteDto) {
+        return this.notedRepo.createNote({
+        title: dto.title,
+        content: dto.content ?? '',
+        color: dto.color,
+        isFavorite: dto.isFavorite ?? false,
+        isArchived: dto.isArchived ?? false,
+        sortOrder: 0,
+        user: { connect: { id: userId } },
+        category: dto.categoryId
+            ? { connect: { id: dto.categoryId } }
+            : undefined,
+        parent: dto.parentId ? { connect: { id: dto.parentId } } : undefined,
+        });
     }
 
-  async getUserNotes(userId: number, query: SearchNotesDto) {
-    const {
-        page = '1',
-        limit = '10',
-        search,
-        categoryId,
-        isArchived,
-        isFavorite,
-        sortBy = 'updatedAt',
-    } = query;
+    async getUserNotes(userId: number, query: SearchNotesDto) {
+        const {
+            page = '1',
+            limit = '10',
+            search,
+            categoryId,
+            isArchived,
+            isFavorite,
+            sortBy = 'updatedAt',
+            statusId,
+        } = query;
 
-    const where: any = {
-        userId,
-    };
+        const where: any = {
+            userId,
+        };
 
-    if (search?.trim()) {
-        where.title = {
-        contains: search.trim(),
-        mode: 'insensitive',
+        if (search?.trim()) {
+            where.title = {
+            contains: search.trim(),
+            mode: 'insensitive',
+            };
+        }
+
+        if (categoryId) where.categoryId = Number(categoryId);
+        if (isArchived !== undefined) where.isArchived = isArchived === 'true';
+        if (isFavorite !== undefined) where.isFavorite = isFavorite === 'true';
+
+        if (statusId !== undefined) {
+            where.statusId = Number(statusId);
+        }
+
+        const take = Number(limit);
+        const skip = (Number(page) - 1) * take;
+
+        const [data, total] = await this.prisma.$transaction([
+            this.prisma.notedNote.findMany({
+            where,
+            skip,
+            take,
+            orderBy: {
+                [sortBy]: 'desc',
+            },
+            include: {
+                category: true,
+                tags: {
+                include: {
+                    tag: true,
+                },
+                },
+            },
+            }),
+            this.prisma.notedNote.count({ where }),
+        ]);
+
+        return {
+            data,
+            total,
+            page: Number(page),
+            limit: take,
+            totalPages: Math.ceil(total / take),
         };
     }
 
-    if (categoryId) where.categoryId = Number(categoryId);
-    if (isArchived !== undefined) where.isArchived = isArchived === 'true';
-    if (isFavorite !== undefined) where.isFavorite = isFavorite === 'true';
-
-    const take = Number(limit);
-    const skip = (Number(page) - 1) * take;
-
-    const [data, total] = await this.prisma.$transaction([
-        this.prisma.notedNote.findMany({
-        where,
-        skip,
-        take,
-        orderBy: {
-            [sortBy]: 'desc',
-        },
-        include: {
-            category: true,
-            tags: {
-            include: {
-                tag: true,
-            },
-            },
-        },
-        }),
-        this.prisma.notedNote.count({ where }),
-    ]);
-
-    return {
-        data,
-        total,
-        page: Number(page),
-        limit: take,
-        totalPages: Math.ceil(total / take),
-    };
-    }
 
     async getNoteDetail(noteId: number, userId: number) {
 

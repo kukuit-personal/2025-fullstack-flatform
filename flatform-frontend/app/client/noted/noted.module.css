@@ -1,0 +1,138 @@
+.container {
+  max-width: 768px;
+  margin: auto;
+  padding: 1rem;
+}
+
+.noteForm {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-bottom: 2rem;
+}
+
+.input,
+.textarea {
+  padding: 0.5rem;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+  font-size: 1rem;
+}
+
+.textarea {
+  min-height: 100px;
+  resize: vertical;
+}
+
+.formActions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.saveBtn,
+.cancelBtn {
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 6px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.saveBtn {
+  background-color: #4f46e5;
+  color: white;
+}
+
+.cancelBtn {
+  background-color: #e5e7eb;
+  color: #374151;
+}
+
+.noteCard {
+  background: #f9fafb;
+  border-radius: 10px;
+  padding: 1rem;
+  margin-bottom: 1rem;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+}
+
+.header {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.avatar {
+  background: #e0f2fe;
+  color: #0369a1;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  font-weight: bold;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.author {
+  font-weight: 600;
+}
+
+.timestamp {
+  font-size: 0.75rem;
+  color: gray;
+}
+
+.title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-top: 0.5rem;
+}
+
+.content {
+  margin-top: 0.5rem;
+}
+
+.noteActions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.editBtn,
+.deleteBtn {
+  border: none;
+  padding: 0.4rem 0.8rem;
+  border-radius: 6px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.editBtn {
+  background-color: #facc15;
+  color: #4a3b00;
+}
+
+.deleteBtn {
+  background-color: #f87171;
+  color: white;
+}
+
+@media (max-width: 640px) {
+  .noteCard {
+    padding: 0.75rem;
+  }
+
+  .title {
+    font-size: 1rem;
+  }
+
+  .noteActions {
+    flex-direction: column;
+  }
+
+  .editBtn,
+  .deleteBtn {
+    width: 100%;
+  }
+}

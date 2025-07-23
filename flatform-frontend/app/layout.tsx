@@ -28,8 +28,8 @@ export default function LocaleLayout({ children }: { children: React.ReactNode }
   const locale = headersList.get("x-locale") || "vi";
 
   return (
-    <html lang={locale}>
-      <body className={`${inter.variable} ${mono.variable} antialiased`}>
+    <html lang={locale} suppressHydrationWarning>
+      <body className={`${inter.variable} ${mono.variable} antialiased`} suppressHydrationWarning>
         <NextIntlClientProvider locale={locale} messages={messages}>
           {children}
         </NextIntlClientProvider>

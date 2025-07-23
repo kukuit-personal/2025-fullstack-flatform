@@ -40,4 +40,8 @@ export class SearchNotesDto {
   @IsOptional()
   @IsEnum(NoteSortBy)
   sortBy?: NoteSortBy;
+
+  @IsOptional()
+  @IsNumberString()
+  statusId?: string;
 }
