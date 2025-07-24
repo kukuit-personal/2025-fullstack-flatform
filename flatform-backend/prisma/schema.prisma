@@ -251,7 +251,7 @@ model NotedNote {
   id         Int      @id @default(autoincrement())
   userId     Int
   title      String
-  content    String
+  content    String? @db.Text
   categoryId Int?
   parentId   Int?
   isFavorite Boolean  @default(false)
