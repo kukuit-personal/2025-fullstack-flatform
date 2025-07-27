@@ -17,6 +17,7 @@ model Role {
   id          Int     @id @default(autoincrement())
   name        String  @unique
   description String?
+  url_login_default  String   @default("/")
 
   users Users[]
 
@@ -32,7 +33,7 @@ model Session {
   user   Users @relation(fields: [userId], references: [id])
   userId Int
 
-  refreshToken String @db.VarChar(512) @unique
+  refreshToken String   @unique @db.VarChar(512)
   expiresAt    DateTime
 
   ip         String?
@@ -66,6 +67,12 @@ model Users {
   sessions      Session[] // NEW: quan hệ 1-n đến bảng sessions
   loginLogs     LoginLog[]
 
+  // Quan hệ với noted
+  notes          NotedNote[] // notes do user này tạo
+  noteCategories NotedCategory[]
+  noteTags       NotedTag[]
+  sharedNotes    NotedShare[]    @relation("SharedWith") // user được chia sẻ
+
   @@fulltext([email])
   @@map("users")
 }
@@ -91,7 +98,7 @@ model Profile {
 model LoginLog {
   id        Int      @id @default(autoincrement())
   userId    Int
-  user      Users     @relation(fields: [userId], references: [id])
+  user      Users    @relation(fields: [userId], references: [id])
   ip        String
   userAgent String?
   createdAt DateTime @default(now())
@@ -229,4 +236,103 @@ model CmsPage {
   updatedAt DateTime @updatedAt
 
   @@map("cmspages")
+}
+
+model Status {
+  id     Int    @id
+  status String
+  
+  NotedNote NotedNote[]
+
+  @@map("status")
+}
+
+model NotedNote {
+  id         Int      @id @default(autoincrement())
+  userId     Int
+  title      String
+  content    String? @db.Text
+  categoryId Int?
+  parentId   Int?
+  isFavorite Boolean  @default(false)
+  isArchived Boolean  @default(false)
+  color      String? // mã màu HEX hoặc text
+  sortOrder  Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  // Quan hệ
+  user      Users          @relation(fields: [userId], references: [id])
+  category  NotedCategory? @relation(fields: [categoryId], references: [id])
+  parent    NotedNote?     @relation("NoteToSubNotes", fields: [parentId], references: [id])
+  children  NotedNote[]    @relation("NoteToSubNotes")
+  tags      NotedNoteTag[] // many-to-many thông qua table trung gian
+  shares    NotedShare[]
+  histories NotedHistory[]
+  statusId  Int            @default(1) // Mặc định là active
+  status    Status         @relation(fields: [statusId], references: [id])
+
+  @@map("noted_notes")
+}
+
+model NotedCategory {
+  id        Int      @id @default(autoincrement())
+  name      String
+  userId    Int
+  createdAt DateTime @default(now())
+
+  user  Users       @relation(fields: [userId], references: [id])
+  notes NotedNote[]
+
+  @@map("noted_categories")
+}
+
+model NotedTag {
+  id        Int      @id @default(autoincrement())
+  name      String
+  userId    Int
+  createdAt DateTime @default(now())
+
+  user  Users          @relation(fields: [userId], references: [id])
+  notes NotedNoteTag[]
+
+  @@map("noted_tags")
+}
+
+model NotedNoteTag {
+  id     Int @id @default(autoincrement())
+  noteId Int
+  tagId  Int
+
+  note NotedNote @relation(fields: [noteId], references: [id])
+  tag  NotedTag  @relation(fields: [tagId], references: [id])
+
+  @@unique([noteId, tagId])
+  @@map("noted_note_tags")
+}
+
+model NotedShare {
+  id         Int @id @default(autoincrement())
+  noteId     Int
+  sharedWith Int // ID người được chia sẻ
+
+  // Nếu có thêm userId (người chia sẻ), thì bạn cần khai báo thêm field này ở đây
+
+  createdAt DateTime @default(now())
+
+  note       NotedNote @relation(fields: [noteId], references: [id])
+  sharedUser Users     @relation("SharedWith", fields: [sharedWith], references: [id])
+
+  @@map("noted_shares")
+}
+
+model NotedHistory {
+  id        Int      @id @default(autoincrement())
+  noteId    Int
+  content   String
+  createdAt DateTime @default(now())
+
+  note NotedNote @relation(fields: [noteId], references: [id])
+
+  @@map("noted_histories")
 }
