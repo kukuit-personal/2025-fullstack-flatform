@@ -11,13 +11,8 @@ const messagesMap = {
 
 export default getRequestConfig(async ({ requestLocale }) => {
   const resolvedLocale = await requestLocale;
-
-  const locale = routing.locales.includes(resolvedLocale)
-    ? resolvedLocale
-    : routing.defaultLocale;
-
   return {
-    locale,
-    messages: messagesMap[locale as keyof typeof messagesMap],
+    locale: resolvedLocale ?? routing.defaultLocale,
+    messages: messagesMap[(resolvedLocale ?? routing.defaultLocale) as keyof typeof messagesMap],
   };
 });
