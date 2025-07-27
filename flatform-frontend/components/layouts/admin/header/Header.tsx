@@ -28,11 +28,11 @@ export default function Header({ setSidebarOpen }: { setSidebarOpen: (v: boolean
       <div className="ml-auto flex items-center gap-4">
         <button className="relative">
           <Bell className="w-5 h-5" />
-          {notification?.unread > 0 && (
+          {/* {notification?.unread > 0 && (
             <span className="absolute top-0 right-0 w-4 h-4 text-xs flex items-center justify-center bg-red-500 text-white rounded-full">
               {notification.unread}
             </span>
-          )}
+          )} */}
         </button>
         <div className="relative">
           <button
