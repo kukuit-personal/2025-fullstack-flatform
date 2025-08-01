@@ -3,6 +3,7 @@ import { UsersRepository } from './users.repository';
 import { CreateUserDto, UpdateUserDto } from './dto';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../../../prisma/prisma.service';
+import { ulid } from 'ulid';
 
 @Injectable()
 export class UsersService {
@@ -11,7 +12,7 @@ export class UsersService {
     private readonly prisma: PrismaService,
   ) {}
 
-  async getUserById(id: number) {
+  async getUserById(id: string) {
     const user = await this.usersRepo.findById(id);
     if (!user) throw new NotFoundException('User not found');
     return user;
@@ -51,12 +52,14 @@ export class UsersService {
     const hashedPassword = await bcrypt.hash(dto.password, 10);
 
     return this.usersRepo.createUser({
+      id: ulid(),
       email: dto.email,
       password: hashedPassword,
       roleId: Number(dto.role),
       status: 'active',
       profile: {
         create: {
+          id: ulid(),
           name: dto.name ?? '',
           phone: dto.phone ?? null,
           avatar: dto.avatar ?? null,
@@ -68,7 +71,7 @@ export class UsersService {
     });
   }
 
-  async updateUser(id: number, dto: UpdateUserDto) {
+  async updateUser(id: string, dto: UpdateUserDto) {
     const user = await this.usersRepo.findById(id);
     if (!user) throw new NotFoundException('User not found');
 
@@ -92,7 +95,7 @@ export class UsersService {
     return this.usersRepo.updateUser(id, updateData);
   }
 
-  async disableUser(id: number) {
+  async disableUser(id: string) {
     const user = await this.usersRepo.findById(id);
     if (!user) throw new NotFoundException('User not found');
 
@@ -106,7 +109,7 @@ export class UsersService {
     });
   }
 
-  async updateStatus(id: number, status: 'active' | 'disable') {
+  async updateStatus(id: string, status: 'active' | 'disable') {
     const user = await this.usersRepo.findById(id)
     if (!user) throw new NotFoundException('User not found')
 

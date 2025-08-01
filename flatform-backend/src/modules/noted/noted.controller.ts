@@ -54,7 +54,7 @@ export class NotedController {
     async getNoteDetail(
     @Req() req,
 
-    @Param('id', ParseIntPipe) noteId: number,
+    @Param('id') noteId: string,
     ) {
         const userId = req.user.id;
         return this.notedService.getNoteDetail(noteId, userId);
@@ -66,7 +66,7 @@ export class NotedController {
     @ApiBearerAuth()
     async updateNote(
     @Req() req,
-    @Param('id', ParseIntPipe) noteId: number,
+    @Param('id') noteId: string,
     @Body() dto: UpdateNoteDto,
     ) {
         const userId = req.user.id;
@@ -80,7 +80,7 @@ export class NotedController {
     @ApiBearerAuth()
     async deleteNote(
     @Req() req,
-    @Param('id', ParseIntPipe) noteId: number,
+    @Param('id') noteId: string,
     ) {
         const userId = req.user.id;
         await this.notedService.softDeleteNote(noteId, userId);
