@@ -31,7 +31,7 @@ model Role {
 model Session {
   id     Int   @id @default(autoincrement())
   user   Users @relation(fields: [userId], references: [id])
-  userId Int
+  userId String
 
   refreshToken String   @unique @db.VarChar(512)
   expiresAt    DateTime
@@ -46,7 +46,7 @@ model Session {
 }
 
 model Users {
-  id           Int       @id @default(autoincrement())
+  id           String   @id 
   email        String    @unique
   password     String
   roleId       Int
@@ -56,6 +56,10 @@ model Users {
   status       String    @default("active")
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
+
+  // Thêm mới cho social login
+  provider     String?  // "google", "facebook", "x", "linkedin"
+  providerId   String?  // ID do Google, FB, ... cung cấp
 
   // Quan hệ
   profile       Profile?
@@ -78,8 +82,8 @@ model Users {
 }
 
 model Profile {
-  id     Int       @id @default(autoincrement())
-  userId Int       @unique
+  id        String   @id
+  userId String       @unique
   name   String?
   avatar String?
   phone  String?
@@ -97,7 +101,7 @@ model Profile {
 
 model LoginLog {
   id        Int      @id @default(autoincrement())
-  userId    Int
+  userId    String
   user      Users    @relation(fields: [userId], references: [id])
   ip        String
   userAgent String?
@@ -107,13 +111,13 @@ model LoginLog {
 }
 
 model Product {
-  id          Int     @id @default(autoincrement())
+  id          String      @id
   name        String
   description String?
   price       Float
   stock       Int     @default(0)
   imageUrl    String?
-  categoryId  Int?
+  categoryId  String?
 
   status    String   @default("active")
   createdAt DateTime @default(now())
@@ -128,9 +132,9 @@ model Product {
 }
 
 model Category {
-  id       Int    @id @default(autoincrement())
+  id       String      @id
   name     String
-  parentId Int?
+  parentId String?
 
   status    String   @default("active")
   createdAt DateTime @default(now())
@@ -142,9 +146,9 @@ model Category {
 }
 
 model Review {
-  id        Int     @id @default(autoincrement())
-  userId    Int
-  productId Int
+  id        String      @id
+  userId    String
+  productId String
   rating    Int
   comment   String?
 
@@ -159,9 +163,9 @@ model Review {
 }
 
 model Booking {
-  id          Int      @id @default(autoincrement())
-  userId      Int
-  productId   Int
+  id          String      @id
+  userId      String
+  productId   String
   bookingTime DateTime
   note        String?
   status      String   @default("pending") // pending, confirmed, cancelled, completed
@@ -175,8 +179,8 @@ model Booking {
 }
 
 model Order {
-  id              Int     @id @default(autoincrement())
-  userId          Int
+  id              String      @id
+  userId          String
   total           Float
   paymentMethod   String
   shippingAddress String?
@@ -192,9 +196,9 @@ model Order {
 }
 
 model OrderItem {
-  id        Int   @id @default(autoincrement())
-  orderId   Int
-  productId Int
+  id        String      @id
+  orderId   String
+  productId String
   quantity  Int
   price     Float
 
@@ -209,8 +213,8 @@ model OrderItem {
 }
 
 model Notification {
-  id      Int     @id @default(autoincrement())
-  userId  Int
+  id      String      @id
+  userId  String
   title   String
   content String
   isRead  Boolean @default(false)
@@ -225,7 +229,7 @@ model Notification {
 }
 
 model CmsPage {
-  id          Int     @id @default(autoincrement())
+  id          String      @id
   slug        String  @unique
   title       String
   content     String
@@ -248,12 +252,12 @@ model Status {
 }
 
 model NotedNote {
-  id         Int      @id @default(autoincrement())
-  userId     Int
+  id         String      @id
+  userId     String
   title      String
   content    String? @db.Text
-  categoryId Int?
-  parentId   Int?
+  categoryId String?
+  parentId   String?
   isFavorite Boolean  @default(false)
   isArchived Boolean  @default(false)
   color      String? // mã màu HEX hoặc text
@@ -276,9 +280,9 @@ model NotedNote {
 }
 
 model NotedCategory {
-  id        Int      @id @default(autoincrement())
+  id        String      @id
   name      String
-  userId    Int
+  userId    String
   createdAt DateTime @default(now())
 
   user  Users       @relation(fields: [userId], references: [id])
@@ -288,9 +292,9 @@ model NotedCategory {
 }
 
 model NotedTag {
-  id        Int      @id @default(autoincrement())
+  id        String      @id
   name      String
-  userId    Int
+  userId    String
   createdAt DateTime @default(now())
 
   user  Users          @relation(fields: [userId], references: [id])
@@ -300,9 +304,9 @@ model NotedTag {
 }
 
 model NotedNoteTag {
-  id     Int @id @default(autoincrement())
-  noteId Int
-  tagId  Int
+  id     String      @id
+  noteId String
+  tagId  String
 
   note NotedNote @relation(fields: [noteId], references: [id])
   tag  NotedTag  @relation(fields: [tagId], references: [id])
@@ -312,9 +316,9 @@ model NotedNoteTag {
 }
 
 model NotedShare {
-  id         Int @id @default(autoincrement())
-  noteId     Int
-  sharedWith Int // ID người được chia sẻ
+  id        String      @id
+  noteId    String
+  sharedWith String // ID người được chia sẻ
 
   // Nếu có thêm userId (người chia sẻ), thì bạn cần khai báo thêm field này ở đây
 
@@ -327,8 +331,8 @@ model NotedShare {
 }
 
 model NotedHistory {
-  id        Int      @id @default(autoincrement())
-  noteId    Int
+  id        String      @id
+  noteId    String
   content   String
   createdAt DateTime @default(now())
 

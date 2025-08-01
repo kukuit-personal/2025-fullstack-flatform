@@ -5,6 +5,7 @@ import { CreateNoteDto } from './dto/create-note.dto';
 import { SearchNotesDto } from './dto/search-notes.dto';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { UpdateNoteDto } from './dto/update-note.dto';
+import { ulid } from 'ulid';
 
 @Injectable()
 export class NotedService {
@@ -13,8 +14,9 @@ export class NotedService {
       private readonly prisma: PrismaService,
     ) {}
 
-    async createNote(userId: number, dto: CreateNoteDto) {
+    async createNote(userId: string, dto: CreateNoteDto) {
         return this.notedRepo.createNote({
+        id: ulid(),
         title: dto.title,
         content: dto.content ?? '',
         color: dto.color,
@@ -29,7 +31,7 @@ export class NotedService {
         });
     }
 
-    async getUserNotes(userId: number, query: SearchNotesDto) {
+    async getUserNotes(userId: string, query: SearchNotesDto) {
         const {
             page = '1',
             limit = '10',
@@ -93,7 +95,7 @@ export class NotedService {
     }
 
 
-    async getNoteDetail(noteId: number, userId: number) {
+    async getNoteDetail(noteId: string, userId: string) {
 
         const note = await this.prisma.notedNote.findFirst({
             where: {
@@ -140,8 +142,8 @@ export class NotedService {
     }
 
     async updateNote(
-        noteId: number,
-        userId: number,
+        noteId: string,
+        userId: string,
         dto: UpdateNoteDto,
     ) {
         // Kiểm tra user có phải là chủ sở hữu không
@@ -176,7 +178,7 @@ export class NotedService {
         });
     }
 
-    async softDeleteNote(noteId: number, userId: number) {
+    async softDeleteNote(noteId: string, userId: string) {
         const note = await this.prisma.notedNote.findFirst({
             where: {
             id: noteId,

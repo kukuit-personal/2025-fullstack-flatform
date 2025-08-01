@@ -32,7 +32,7 @@ export class UsersController {
   @ApiOperation({ summary: 'Get user by ID' })
   @ApiResponse({ status: 200, description: 'User found' })
   @ApiResponse({ status: 404, description: 'User not found' })
-  async findById(@Param('id', ParseIntPipe) id: number) {
+  async findById(@Param('id') id: string) {
     return this.usersService.getUserById(id);
   }
 
@@ -49,7 +49,7 @@ export class UsersController {
   @ApiOperation({ summary: 'Update user info' })
   @ApiResponse({ status: 200, description: 'User updated' })
   async update(
-    @Param('id', ParseIntPipe) id: number,
+    @Param('id') id: string,
     @Body() dto: UpdateUserDto,
   ) {
     return this.usersService.updateUser(id, dto);
@@ -60,7 +60,7 @@ export class UsersController {
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Soft delete (disable) user' })
   @ApiResponse({ status: 204, description: 'User soft deleted' })
-  async softDelete(@Param('id', ParseIntPipe) id: number) {
+  async softDelete(@Param('id') id: string) {
     return this.usersService.disableUser(id);
   }
 
@@ -69,7 +69,7 @@ export class UsersController {
   @ApiOperation({ summary: 'Update user status (active/disable)' })
   @ApiResponse({ status: 200, description: 'User status updated' })
   async updateStatus(
-    @Param('id', ParseIntPipe) id: number,
+    @Param('id') id: string,
     @Body('status') status: 'active' | 'disable',
   ) {
     if (!['active', 'disable'].includes(status)) {

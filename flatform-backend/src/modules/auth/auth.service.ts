@@ -3,6 +3,7 @@ import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../../../prisma/prisma.service';
 import * as bcrypt from 'bcrypt';
 import { RegisterDto } from './dto/register.dto';
+import { ulid } from 'ulid';
 
 @Injectable()
 export class AuthService {
@@ -137,7 +138,7 @@ export class AuthService {
    * @param oldToken Token cũ
    * @returns { accessToken, refreshToken }
    */
-  async refreshToken(userId: number, oldToken: string) {
+  async refreshToken(userId: string, oldToken: string) {
 
     const session = await this.prisma.session.findUnique({
       where: { refreshToken: oldToken },
@@ -178,46 +179,56 @@ export class AuthService {
    * @param dto Thông tin đăng ký
    * @returns { message, userId }
    */
-  async register(dto: RegisterDto) {
-    // Kiểm tra email đã tồn tại
-    const existing = await this.prisma.users.findUnique({
-      where: { email: dto.email.toLowerCase() },
-    });
-    if (existing) {
-      throw new ConflictException('Email đã tồn tại');
-    }
+    async register(dto: RegisterDto) {
+      const email = dto.email.toLowerCase().trim();
 
-    // Get role by name (or  'client')
-    const role = await this.prisma.role.findUnique({
-      where: { name: dto.role || 'client' },
-    });
-    if (!role) {
-      throw new BadRequestException('Vai trò không hợp lệ');
-    }
+      // 1. Kiểm tra email đã tồn tại
+      const existing = await this.prisma.users.findUnique({
+        where: { email },
+      });
+      if (existing) {
+        throw new ConflictException('Email đã tồn tại');
+      }
 
-    // Hash password
-    const hashedPassword = await bcrypt.hash(dto.password, 10);
+      // 2. Lấy role (hoặc mặc định là 'client')
+      const role = await this.prisma.role.findUnique({
+        where: { name: dto.role || 'client' },
+      });
+      if (!role) {
+        throw new BadRequestException('Vai trò không hợp lệ');
+      }
 
-    // Create user
-    const user = await this.prisma.users.create({
-      data: {
-        email: dto.email.toLowerCase(),
-        password: hashedPassword,
-        roleId: role.id,
-        profile: {
-          create: { dob: null },
+      // 3. Hash password
+      const hashedPassword = await bcrypt.hash(dto.password, 10);
+
+      // 4. Tạo user với ULID
+      // const userId = ulid();
+      const user = await this.prisma.users.create({
+        data: {
+          id: ulid(), // ULID cho user
+          email,
+          password: hashedPassword,
+          roleId: role.id,
+          profile: {
+            create: { 
+              id: ulid(), // ULID cho profile
+              dob: null 
+            },
+          },
         },
-      },
-      include: {
-        profile: true,
-      },
-    });
+        include: {
+          profile: true,
+        },
+      });
 
-    return { message: 'Đăng ký thành công', userId: user.id };
-  }
+      return {
+        message: 'Đăng ký thành công',
+        userId: user.id,
+      };
+    }
 
 
-  async getProfile(userId: number) {
+  async getProfile(userId: string) {
     const user = await this.prisma.users.findUnique({
       where: { id: userId },
       include: { 
@@ -247,7 +258,7 @@ export class AuthService {
   }
 
    // logout
-  async logout(userId: number) {
+  async logout(userId: string) {
     // Delete all refreshToken in session table related to user
     await this.prisma.session.deleteMany({
       where: { userId },

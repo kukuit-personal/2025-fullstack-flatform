@@ -6,7 +6,7 @@ import { PrismaService } from '../../../prisma/prisma.service';
 export class UsersRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  async findById(id: number) {
+  async findById(id: string) {
     return this.prisma.users.findUnique({ where: { id }, include: { role: true, profile: true } });
   }
 
@@ -18,11 +18,11 @@ export class UsersRepository {
     return this.prisma.users.create({ data });
   }
 
-  async updateUser(id: number, data: any) {
+  async updateUser(id: string, data: any) {
     return this.prisma.users.update({ where: { id }, data });
   }
 
-  async deleteUser(id: number) {
+  async deleteUser(id: string) {
     return this.prisma.users.delete({ where: { id } });
   }
 
@@ -33,7 +33,7 @@ export class UsersRepository {
     });
   }
 
-  async softDelete(id: number) {
+  async softDelete(id: string) {
     return this.prisma.users.update({
       where: { id },
       data: { status: 'DISABLED' }
