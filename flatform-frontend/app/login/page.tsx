@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useAuth } from '@/hooks/auth/useAuth';
 import { useTranslations } from 'next-intl';
 import { LanguageSwitcher } from '@/components/buttons/LanguageSwitcher';
+import { Loader2 } from 'lucide-react';
 
 export default function LoginPage() {
   const t = useTranslations('login');
@@ -13,6 +14,8 @@ export default function LoginPage() {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (loading) return; // Ngăn spam khi đang loading
 
     if (!email || !password) {
       setError(t('missing_credentials'));
@@ -29,7 +32,10 @@ export default function LoginPage() {
         <LanguageSwitcher />
       </div>
 
-      <form onSubmit={handleLogin} className="bg-white p-8 rounded shadow-md w-full max-w-sm">
+      <form
+        onSubmit={handleLogin}
+        className="bg-white p-8 rounded shadow-md w-full max-w-sm"
+      >
         <h2 className="text-2xl font-bold mb-6 text-center">{t('login')}</h2>
 
         {error && (
@@ -39,22 +45,26 @@ export default function LoginPage() {
         )}
 
         <div className="mb-4">
-          <label className="block text-sm font-medium text-gray-700">{t('email_label')}</label>
+          <label className="block text-sm font-medium text-gray-700">
+            {t('email_label')}
+          </label>
           <input
             type="email"
             value={email}
-            onChange={e => setEmail(e.target.value)}
+            onChange={(e) => setEmail(e.target.value)}
             className="mt-1 w-full px-3 py-2 border border-gray-300 rounded shadow-sm focus:outline-none focus:ring focus:border-blue-500"
             required
           />
         </div>
 
         <div className="mb-6">
-          <label className="block text-sm font-medium text-gray-700">{t('password_label')}</label>
+          <label className="block text-sm font-medium text-gray-700">
+            {t('password_label')}
+          </label>
           <input
             type="password"
             value={password}
-            onChange={e => setPassword(e.target.value)}
+            onChange={(e) => setPassword(e.target.value)}
             className="mt-1 w-full px-3 py-2 border border-gray-300 rounded shadow-sm focus:outline-none focus:ring focus:border-blue-500"
             required
           />
@@ -63,9 +73,20 @@ export default function LoginPage() {
         <button
           type="submit"
           disabled={loading}
-          className="w-full bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700 transition"
+          className={`w-full py-2 px-4 rounded transition text-white flex items-center justify-center gap-2 ${
+            loading
+              ? 'bg-blue-400 cursor-not-allowed'
+              : 'bg-blue-600 hover:bg-blue-700'
+          }`}
         >
-          {loading ? t('submitting') : t('submit')}
+          {loading ? (
+            <>
+              <Loader2 className="w-4 h-4 animate-spin" />
+              {t('submitting')}
+            </>
+          ) : (
+            t('submit')
+          )}
         </button>
       </form>
     </div>

@@ -10,19 +10,24 @@ import {
 import Link from 'next/link'
 import { User } from '../types'
 import ConfirmModal from '@/components/common/ConfirmModal'
+import { Pencil, CheckCircle, XCircle } from 'lucide-react';
 
 interface Props {
   data: User[]
   onToggleStatus: (user: User) => void
-  loadingIds?: number[]
+  loadingIds?: string[]
   disabled?: boolean
 }
 
 export default function UsersTable({ data, onToggleStatus, loadingIds = [] }: Props) {
   const columns: ColumnDef<User>[] = [
-    {
+    { 
       accessorKey: 'id',
       header: 'ID',
+      cell: ({ row }) => {
+         const id = String(row.original.id);
+        return id ? `${id.slice(0, 6)}...` : '-';
+      },
     },
     {
       accessorKey: 'email',
@@ -32,9 +37,9 @@ export default function UsersTable({ data, onToggleStatus, loadingIds = [] }: Pr
       accessorKey: 'role.name',
       header: 'Vai trò',
       cell: ({ row }) => {
-      const roleName = row.original.role?.name || '-'
-      return roleName.charAt(0).toUpperCase() + roleName.slice(1)
-  }
+          const roleName = row.original.role?.name || '-'
+          return roleName.charAt(0).toUpperCase() + roleName.slice(1)
+      }
     },
     {
       accessorKey: 'status',
@@ -44,8 +49,10 @@ export default function UsersTable({ data, onToggleStatus, loadingIds = [] }: Pr
         const isActive = status === 'active'
 
         return (
-          <span className={`px-2 py-1 rounded text-xs font-semibold 
-            ${isActive ? 'bg-green-100 text-green-800' : 'bg-gray-200 text-gray-700'}`}>
+          <span
+            className={`inline-block w-[65px] px-2 py-1 rounded text-xs font-semibold text-center
+              ${isActive ? 'bg-green-100 text-green-800' : 'bg-gray-200 text-gray-700'}`}
+            >
             {isActive ? 'Active' : 'Disabled'}
           </span>
         )
@@ -71,8 +78,9 @@ export default function UsersTable({ data, onToggleStatus, loadingIds = [] }: Pr
           <div className="flex gap-2 items-center">
             <Link
               href={`/admin/users/${user.id}`}
-              className="px-2 py-1 text-xs rounded bg-blue-50 text-blue-700 hover:bg-blue-100 transition font-medium"
+              className="px-2 py-1 text-xs rounded bg-blue-50 text-blue-700 hover:bg-blue-100 transition font-medium flex items-center gap-1"
             >
+              <Pencil className="w-3.5 h-3.5" />
               Sửa
             </Link>
 
@@ -87,14 +95,24 @@ export default function UsersTable({ data, onToggleStatus, loadingIds = [] }: Pr
                 onConfirm={() => onToggleStatus(user)}
                 trigger={
                   <button
-                    className={`px-2 py-1 text-xs rounded font-medium transition
+                    className={`w-[85px] flex gap-1 px-2 py-1 text-xs rounded font-medium transition cursor-pointer text-center
                       ${
                         user.status === 'active'
                           ? 'bg-red-50 text-red-700 hover:bg-red-100'
                           : 'bg-green-50 text-green-700 hover:bg-green-100'
                       }`}
-                  >
-                    {user.status === 'active' ? 'Disable' : 'Kích hoạt'}
+                    >
+                    {user.status === 'active' ? (
+                      <>
+                        <XCircle className="w-3.5 h-3.5" />
+                        Disable
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle className="w-3.5 h-3.5" />
+                        Kích hoạt
+                      </>
+                    )}
                   </button>
                 }
               />

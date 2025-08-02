@@ -48,10 +48,10 @@ export default function UserForm({ user, isEdit }: Props) {
       email: form.email,
       password: form.password,
       role: Number(form.role),
-      name: form.name,
-      phone: form.phone,
-      gender: form.gender,
-      dob: form.dob,
+      name: form.name || undefined,
+      phone: form.phone || undefined,
+      gender: form.gender || undefined,
+      dob: form.dob || undefined,
     }
 
     if (isEdit && user?.id) {
