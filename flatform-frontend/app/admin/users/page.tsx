@@ -18,7 +18,7 @@ export default function UsersPage() {
   const [status, setStatus] = useState(searchParams.get('status') || 'all')
   const [keyword, setKeyword] = useState(searchParams.get('q') || '')
   const [totalPages, setTotalPages] = useState(1)
-  const [loadingIds, setLoadingIds] = useState<number[]>([])
+  const [loadingIds, setLoadingIds] = useState<string[]>([])
   const [isTableDisabled, setIsTableDisabled] = useState(false)
 
   const fetchUsers = async () => {

@@ -1,5 +1,5 @@
 export interface User {
-  id: number
+  id: string
   email: string
   password?: string
   roleId?: number
@@ -7,7 +7,7 @@ export interface User {
   status: 'active' | 'disable'
 
   profile?: {
-    id: number
+    id: string
     name?: string
     avatar?: string
     phone?: string

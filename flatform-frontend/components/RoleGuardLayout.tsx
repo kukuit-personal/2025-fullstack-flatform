@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUser } from '@/hooks/auth/useUser';
+import PageLoading from '@/components/ui/page-loading';
 
 interface RoleGuardLayoutProps {
   allowedRoles: string[];
@@ -20,7 +21,7 @@ export function RoleGuardLayout({ allowedRoles, children }: RoleGuardLayoutProps
   }, [isLoading, user, allowedRoles, router]);
 
   if (isLoading || !user) {
-    return <p className="p-4">Đang kiểm tra quyền truy cập...</p>;
+    return <PageLoading />;
   }
 
   return <>{children}</>;
