@@ -2,9 +2,24 @@
   "login": {
     "login": "Login",
     "missing_credentials": "Please enter email and password",
-    "email_label": "Email",
+    "email_label": "Email or phone",
     "password_label": "Password",
     "submit": "Login",
-    "submitting": "Logging in..."
+    "submitting": "Logging in...",
+    "forgot_password": "Forgot password?",
+    "create_account": "Create new account",
+    "create_page_prefix": "Create a Page",
+    "create_page_suffix": "for a celebrity, brand or business."
+  },
+  "register": {
+    "title": "Create your account",
+    "email_label": "Email",
+    "password_label": "Password",
+    "submit": "Register",
+    "submitting": "Creating...",
+    "missing_credentials": "Please enter email and password",
+    "login_link": "Back to login",
+    "invalid_email": "Invalid email address",
+    "short_password": "Password must be at least 6 characters"
   }
 }

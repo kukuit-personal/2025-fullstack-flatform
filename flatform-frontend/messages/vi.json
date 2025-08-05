@@ -2,9 +2,24 @@
   "login": {
     "login": "Đăng nhập",
     "missing_credentials": "Vui lòng nhập email và mật khẩu",
-    "email_label": "Email",
+    "email_label": "Email hoặc số điện thoại",
     "password_label": "Mật khẩu",
     "submit": "Đăng nhập",
-    "submitting": "Đang đăng nhập..."
+    "submitting": "Đang đăng nhập...",
+    "forgot_password": "Quên mật khẩu?",
+    "create_account": "Tạo tài khoản mới",
+    "create_page_prefix": "Tạo Trang",
+    "create_page_suffix": "dành cho người nổi tiếng, thương hiệu hoặc doanh nghiệp."
+  },
+  "register": {
+    "title": "Tạo tài khoản",
+    "email_label": "Email",
+    "password_label": "Mật khẩu",
+    "submit": "Đăng ký",
+    "submitting": "Đang tạo tài khoản...",
+    "missing_credentials": "Vui lòng nhập email và mật khẩu",
+    "login_link": "Quay lại đăng nhập",
+    "invalid_email": "Email không hợp lệ",
+    "short_password": "Mật khẩu phải có ít nhất 6 ký tự"
   }
 }
