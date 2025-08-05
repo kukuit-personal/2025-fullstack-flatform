@@ -1,40 +1,61 @@
 'use client';
 
 import { useState } from 'react';
-import { useAuth } from '@/hooks/auth/useAuth';
+import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
-import { LanguageSwitcher } from '@/components/buttons/LanguageSwitcher';
-import { Loader2 } from 'lucide-react';
 import Link from 'next/link';
+import { Loader2 } from 'lucide-react';
+import { register } from './actions';
 
-export default function LoginPage() {
-  const t = useTranslations('login');
-  const { login, loading, error, setError } = useAuth();
+export default function RegisterPage() {
+  const t = useTranslations('register');
+  const router = useRouter();
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (loading) return;
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
     if (!email || !password) {
       setError(t('missing_credentials'));
       return;
     }
-    await login(email, password);
+
+    if (!emailRegex.test(email)) {
+      setError(t('invalid_email'));
+      return;
+    }
+
+    if (password.length < 6) {
+      setError(t('short_password'));
+      return;
+    }
+
+    setLoading(true);
+    setError('');
+
+    try {
+      await register({ email, password });
+      router.push('/login');
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-100 relative px-4">
-      {/* Nút đổi ngôn ngữ */}
-      <div className="absolute top-4 right-4 z-10">
-        <LanguageSwitcher />
-      </div>
-
+    <div className="min-h-screen flex items-center justify-center bg-gray-100 px-4">
       <form
-        onSubmit={handleLogin}
+        onSubmit={handleRegister}
         className="bg-white p-8 rounded shadow-md w-full max-w-sm"
       >
-        <h2 className="text-2xl font-bold mb-6 text-center">{t('login')}</h2>
+        <h2 className="text-2xl font-bold mb-6 text-center">{t('title')}</h2>
 
         {error && (
           <div className="bg-red-100 text-red-700 p-2 mb-4 rounded text-sm">
@@ -55,7 +76,7 @@ export default function LoginPage() {
           />
         </div>
 
-        <div className="mb-4">
+        <div className="mb-6">
           <label className="block text-sm font-medium text-gray-700">
             {t('password_label')}
           </label>
@@ -72,9 +93,7 @@ export default function LoginPage() {
           type="submit"
           disabled={loading}
           className={`w-full py-2 px-4 rounded transition text-white flex items-center justify-center gap-2 ${
-            loading
-              ? 'bg-blue-400 cursor-not-allowed'
-              : 'bg-blue-600 hover:bg-blue-700'
+            loading ? 'bg-green-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700'
           }`}
         >
           {loading ? (
@@ -88,22 +107,8 @@ export default function LoginPage() {
         </button>
 
         <div className="text-center mt-4">
-          <Link
-            href="/recover"
-            className="text-sm text-blue-600 hover:underline"
-          >
-            {t('forgot_password')}
-          </Link>
-        </div>
-
-        <hr className="my-6 border-gray-200" />
-
-        <div className="text-center">
-          <Link
-            href="/register"
-            className="inline-block bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded"
-          >
-            {t('create_account')}
+          <Link href="/login" className="text-sm text-blue-600 hover:underline">
+            {t('login_link')}
           </Link>
         </div>
       </form>
