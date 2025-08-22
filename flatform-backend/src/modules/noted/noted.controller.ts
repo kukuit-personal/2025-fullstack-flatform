@@ -8,7 +8,6 @@ import {
   Get,
   Query,
   Param,
-  ParseIntPipe,
   Put,
   Delete,
   HttpCode,
@@ -26,67 +25,57 @@ import { UpdateNoteDto } from './dto/update-note.dto';
 @Controller('noted')
 @UseGuards(JwtAuthGuard)
 export class NotedController {
-    constructor(private readonly notedService: NotedService) {}
+  constructor(private readonly notedService: NotedService) {}
 
-    @Post()
-    @ApiOperation({ summary: 'Tạo ghi chú mới' })
-    async createNote(@Req() req, @Body() dto: CreateNoteDto) {
-        const userId = req.user.id;
-        return this.notedService.createNote(userId, dto);
-    }
+  @Post()
+  @ApiOperation({ summary: 'Tạo ghi chú mới' })
+  async createNote(@Req() req, @Body() dto: CreateNoteDto) {
+    const userId = req.user.id;
+    return this.notedService.createNote(userId, dto);
+  }
 
-    @Get()
-    @UseGuards(JwtAuthGuard)
-    @ApiOperation({ summary: 'Lấy danh sách ghi chú của người dùng' })
-    @ApiBearerAuth()
-    async getUserNotes(
-    @Req() req,
-    @Query() query: SearchNotesDto,
-    ) {
-        const userId = req.user.id;
-        return this.notedService.getUserNotes(userId, query);
-    }
+  @Get()
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Lấy danh sách ghi chú của người dùng' })
+  @ApiBearerAuth()
+  async getUserNotes(@Req() req, @Query() query: SearchNotesDto) {
+    const userId = req.user.id;
+    return this.notedService.getUserNotes(userId, query);
+  }
 
-    @Get(':id')
-    @UseGuards(JwtAuthGuard)
-    @ApiOperation({ summary: 'Lấy chi tiết 1 ghi chú' })
-    @ApiBearerAuth()
-    async getNoteDetail(
+  @Get(':id')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Lấy chi tiết 1 ghi chú' })
+  @ApiBearerAuth()
+  async getNoteDetail(
     @Req() req,
 
     @Param('id') noteId: string,
-    ) {
-        const userId = req.user.id;
-        return this.notedService.getNoteDetail(noteId, userId);
-    }
+  ) {
+    const userId = req.user.id;
+    return this.notedService.getNoteDetail(noteId, userId);
+  }
 
-    @Put(':id')
-    @UseGuards(JwtAuthGuard)
-    @ApiOperation({ summary: 'Cập nhật ghi chú' })
-    @ApiBearerAuth()
-    async updateNote(
+  @Put(':id')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Cập nhật ghi chú' })
+  @ApiBearerAuth()
+  async updateNote(
     @Req() req,
     @Param('id') noteId: string,
     @Body() dto: UpdateNoteDto,
-    ) {
-        const userId = req.user.id;
-        return this.notedService.updateNote(noteId, userId, dto);
-    }
+  ) {
+    const userId = req.user.id;
+    return this.notedService.updateNote(noteId, userId, dto);
+  }
 
-    @Delete(':id')
-    @UseGuards(JwtAuthGuard)
-    @HttpCode(HttpStatus.NO_CONTENT)
-    @ApiOperation({ summary: 'Xóa mềm ghi chú' })
-    @ApiBearerAuth()
-    async deleteNote(
-    @Req() req,
-    @Param('id') noteId: string,
-    ) {
-        const userId = req.user.id;
-        await this.notedService.softDeleteNote(noteId, userId);
-    }
-
-
-
-
+  @Delete(':id')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Xóa mềm ghi chú' })
+  @ApiBearerAuth()
+  async deleteNote(@Req() req, @Param('id') noteId: string) {
+    const userId = req.user.id;
+    await this.notedService.softDeleteNote(noteId, userId);
+  }
 }

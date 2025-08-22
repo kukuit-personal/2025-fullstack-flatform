@@ -1,10 +1,10 @@
 import { IsEmail, IsNotEmpty, MinLength } from 'class-validator';
 
-export class RegisterDto {
+export class ChangePasswordAdminDto {
   @IsEmail()
   email: string;
 
   @IsNotEmpty()
   @MinLength(6)
-  password: string;
+  newPassword: string;
 }

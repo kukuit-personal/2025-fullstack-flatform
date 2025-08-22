@@ -1,4 +1,12 @@
-import { Controller, Post, Body, Get, Req, UseGuards, Res } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  Get,
+  Req,
+  UseGuards,
+  Res,
+} from '@nestjs/common';
 import { Response } from 'express';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
@@ -6,6 +14,10 @@ import { RegisterDto } from './dto/register.dto';
 import { AuthGuard } from '@nestjs/passport';
 import { JwtRefreshGuard } from './jwt-refresh.guard';
 import { Public } from '@/common/decorators/public.decorator';
+import { RolesGuard } from '@/common/guards/roles.guard';
+import { Roles } from '@/common/decorators/roles.decorator';
+import { RegisterWithRoleDto } from './dto/register-with-role.dto';
+import { ChangePasswordAdminDto } from './dto/change-password-admin.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -17,17 +29,16 @@ export class AuthController {
   async login(
     @Body() loginDto: LoginDto,
     @Req() req: Request,
-    @Res({ passthrough: true }) res: Response
+    @Res({ passthrough: true }) res: Response,
   ) {
-
     const ip = this.getClientIp(req);
     const userAgent = req.headers['user-agent'] || '';
 
     const result = await this.authService.login(
       loginDto.email,
       loginDto.password,
-      ip,             
-      userAgent                    
+      ip,
+      userAgent,
     );
 
     // Set cookies
@@ -45,7 +56,7 @@ export class AuthController {
       maxAge: 7 * 24 * 60 * 60 * 1000,
       sameSite: 'lax',
     });
-    
+
     const redirect = result.user.redirectUrl || '/';
     return { redirect };
   }
@@ -54,7 +65,7 @@ export class AuthController {
     const forwarded = req.headers['x-forwarded-for'];
     return typeof forwarded === 'string'
       ? forwarded.split(',')[0]
-      : ((req as any).socket?.remoteAddress || '');
+      : (req as any).socket?.remoteAddress || '';
   }
 
   // Refresh token
@@ -88,7 +99,7 @@ export class AuthController {
   @UseGuards(AuthGuard('jwt'))
   @Get('role')
   getRole(@Req() req) {
-    return { role: req.user.role }
+    return { role: req.user.role };
   }
 
   // Register
@@ -96,6 +107,13 @@ export class AuthController {
   @Post('register')
   register(@Body() registerDto: RegisterDto) {
     return this.authService.register(registerDto);
+  }
+
+  @UseGuards(JwtRefreshGuard, RolesGuard)
+  @Roles('admin')
+  @Post('register-role')
+  registerWithRole(@Body() dto: RegisterWithRoleDto) {
+    return this.authService.registerWithRole(dto);
   }
 
   // Get profile
@@ -112,7 +130,7 @@ export class AuthController {
   @Post('logout')
   async logout(@Req() req: any, @Res({ passthrough: true }) res: Response) {
     const userId = req.user?.id;
-    
+
     if (!userId) {
       return { message: 'Unauthorized' };
     }
@@ -130,5 +148,12 @@ export class AuthController {
     });
 
     return this.authService.logout(userId);
+  }
+
+  @UseGuards(JwtRefreshGuard, RolesGuard)
+  @Roles('admin')
+  @Post('admin-change-password')
+  changePasswordByAdmin(@Body() dto: ChangePasswordAdminDto) {
+    return this.authService.adminChangePasswordByEmail(dto);
   }
 }
