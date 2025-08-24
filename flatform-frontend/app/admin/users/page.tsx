@@ -119,7 +119,7 @@ export default function UsersPage() {
         <h1 className="text-3xl font-bold tracking-tight">Users</h1>
         <button
           onClick={openCreate}
-          className="inline-flex items-center gap-2 rounded-xl bg-black px-4 py-1 text-white shadow hover:bg-gray-900"
+          className="inline-flex items-center gap-2 rounded-lg bg-black px-4 py-1 text-white shadow hover:bg-gray-900"
         >
           + New User
         </button>
