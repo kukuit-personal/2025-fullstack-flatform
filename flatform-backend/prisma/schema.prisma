@@ -14,10 +14,10 @@ enum Gender {
 }
 
 model Role {
-  id          Int     @id @default(autoincrement())
-  name        String  @unique
-  description String?
-  url_login_default  String   @default("/")
+  id                Int     @id @default(autoincrement())
+  name              String  @unique
+  description       String?
+  url_login_default String  @default("/")
 
   users Users[]
 
@@ -29,8 +29,8 @@ model Role {
 }
 
 model Session {
-  id     Int   @id @default(autoincrement())
-  user   Users @relation(fields: [userId], references: [id])
+  id     Int    @id @default(autoincrement())
+  user   Users  @relation(fields: [userId], references: [id])
   userId String
 
   refreshToken String   @unique @db.VarChar(512)
@@ -46,7 +46,7 @@ model Session {
 }
 
 model Users {
-  id           String   @id 
+  id           String    @id
   email        String    @unique
   password     String
   roleId       Int
@@ -58,8 +58,8 @@ model Users {
   updatedAt    DateTime  @updatedAt
 
   // Thêm mới cho social login
-  provider     String?  // "google", "facebook", "x", "linkedin"
-  providerId   String?  // ID do Google, FB, ... cung cấp
+  provider   String? // "google", "facebook", "x", "linkedin"
+  providerId String? // ID do Google, FB, ... cung cấp
 
   // Quan hệ
   profile       Profile?
@@ -77,13 +77,19 @@ model Users {
   noteTags       NotedTag[]
   sharedNotes    NotedShare[]    @relation("SharedWith") // user được chia sẻ
 
+  // Quan hệ với email_templates
+  emailTemplates EmailTemplate[]
+  emailTpTags    EmailTpTag[]
+  emailTpShared  EmailTpShare[]  @relation("EmailTpSharedWith")
+  emailCustomers EmailCustomer[] @relation(fields: [], references: [])
+
   @@fulltext([email])
   @@map("users")
 }
 
 model Profile {
-  id        String   @id
-  userId String       @unique
+  id     String    @id
+  userId String    @unique
   name   String?
   avatar String?
   phone  String?
@@ -111,7 +117,7 @@ model LoginLog {
 }
 
 model Product {
-  id          String      @id
+  id          String  @id
   name        String
   description String?
   price       Float
@@ -132,7 +138,7 @@ model Product {
 }
 
 model Category {
-  id       String      @id
+  id       String  @id
   name     String
   parentId String?
 
@@ -146,7 +152,7 @@ model Category {
 }
 
 model Review {
-  id        String      @id
+  id        String  @id
   userId    String
   productId String
   rating    Int
@@ -163,7 +169,7 @@ model Review {
 }
 
 model Booking {
-  id          String      @id
+  id          String   @id
   userId      String
   productId   String
   bookingTime DateTime
@@ -179,7 +185,7 @@ model Booking {
 }
 
 model Order {
-  id              String      @id
+  id              String  @id
   userId          String
   total           Float
   paymentMethod   String
@@ -196,7 +202,7 @@ model Order {
 }
 
 model OrderItem {
-  id        String      @id
+  id        String @id
   orderId   String
   productId String
   quantity  Int
@@ -213,7 +219,7 @@ model OrderItem {
 }
 
 model Notification {
-  id      String      @id
+  id      String  @id
   userId  String
   title   String
   content String
@@ -229,7 +235,7 @@ model Notification {
 }
 
 model CmsPage {
-  id          String      @id
+  id          String  @id
   slug        String  @unique
   title       String
   content     String
@@ -245,17 +251,19 @@ model CmsPage {
 model Status {
   id     Int    @id
   status String
-  
+
   NotedNote NotedNote[]
 
   @@map("status")
 }
 
+// Noted ----------------------------------------------------------------------------------------------------
+
 model NotedNote {
-  id         String      @id
+  id         String   @id
   userId     String
   title      String
-  content    String? @db.Text
+  content    String?  @db.Text
   categoryId String?
   parentId   String?
   isFavorite Boolean  @default(false)
@@ -280,7 +288,7 @@ model NotedNote {
 }
 
 model NotedCategory {
-  id        String      @id
+  id        String   @id
   name      String
   userId    String
   createdAt DateTime @default(now())
@@ -292,7 +300,7 @@ model NotedCategory {
 }
 
 model NotedTag {
-  id        String      @id
+  id        String   @id
   name      String
   userId    String
   createdAt DateTime @default(now())
@@ -304,7 +312,7 @@ model NotedTag {
 }
 
 model NotedNoteTag {
-  id     String      @id
+  id     String @id
   noteId String
   tagId  String
 
@@ -316,8 +324,8 @@ model NotedNoteTag {
 }
 
 model NotedShare {
-  id        String      @id
-  noteId    String
+  id         String @id
+  noteId     String
   sharedWith String // ID người được chia sẻ
 
   // Nếu có thêm userId (người chia sẻ), thì bạn cần khai báo thêm field này ở đây
@@ -331,7 +339,7 @@ model NotedShare {
 }
 
 model NotedHistory {
-  id        String      @id
+  id        String   @id
   noteId    String
   content   String
   createdAt DateTime @default(now())
@@ -339,4 +347,150 @@ model NotedHistory {
   note NotedNote @relation(fields: [noteId], references: [id])
 
   @@map("noted_histories")
+}
+
+// Email_templates ----------------------------------------------------------------------------------------------------
+// ---------- Enums ----------
+enum EmailTpPermission {
+  VIEW
+  EDIT
+  OWNER
+}
+
+// ---------- Status cho email templates ----------
+model EmailTpStatus {
+  id        Int             @id
+  status    String          @unique
+  templates EmailTemplate[]
+
+  @@map("email_tp_status")
+}
+
+// ---------- KHÁCH HÀNG (mới) ----------
+model EmailCustomer {
+  id      String  @id @default(cuid())
+  name    String
+  email   String? @db.VarChar(191)
+  phone   String? @db.VarChar(64)
+  company String?
+  notes   String? @db.Text
+
+  // (tuỳ chọn) gắn owner để biết khách hàng của user nào
+  userId String?
+  owner  Users?  @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  // liên kết ngược: các template gắn với customer này
+  templates EmailTemplate[]
+
+  status    String   @default("active")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([name])
+  @@index([email])
+  @@map("email_customer")
+}
+
+// ---------- TEMPLATE chính ----------
+model EmailTemplate {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String?  @unique
+  description String?
+  html        String   @db.LongText // Nội dung HTML
+  hasImages   Boolean  @default(false) // true nếu có ảnh đính kèm
+  price       Decimal? @db.Decimal(10, 2) // Có hoặc không
+  currency    String?  @default("USD")
+
+  // Liên kết User tạo template
+  userId  String
+  creator Users  @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  // (mới) Liên kết tùy chọn tới Customer — có thể để trống
+  customerId String?
+  customer   EmailCustomer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+
+  // Trạng thái
+  statusId Int           @default(1)
+  status   EmailTpStatus @relation(fields: [statusId], references: [id])
+
+  // Quan hệ mở rộng
+  images EmailTpImage[]
+  tags   EmailTpTemplateTag[]
+  shares EmailTpShare[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([name])
+  @@index([createdAt])
+  @@index([statusId])
+  @@index([price])
+  @@index([customerId])
+  @@map("email_templates")
+}
+
+// ---------- Ảnh đính kèm template ----------
+model EmailTpImage {
+  id         String        @id @default(cuid())
+  templateId String
+  template   EmailTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  url      String
+  filename String?
+  mimeType String?
+  width    Int?
+  height   Int?
+  bytes    Int?
+
+  createdAt DateTime @default(now())
+
+  @@unique([templateId, filename])
+  @@map("email_tp_images")
+}
+
+// ---------- Tag ----------
+model EmailTpTag {
+  id     String  @id @default(cuid())
+  name   String
+  userId String?
+  owner  Users?  @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  templates EmailTpTemplateTag[]
+
+  createdAt DateTime @default(now())
+
+  @@unique([name, userId])
+  @@index([name])
+  @@map("email_tp_tag")
+}
+
+// ---------- Bảng nối template–tag ----------
+model EmailTpTemplateTag {
+  id         String @id @default(cuid())
+  templateId String
+  tagId      String
+
+  template EmailTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  tag      EmailTpTag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@unique([templateId, tagId])
+  @@index([tagId])
+  @@map("email_tp_template_tag")
+}
+
+// ---------- Chia sẻ template ----------
+model EmailTpShare {
+  id         String            @id @default(cuid())
+  templateId String
+  sharedWith String
+  permission EmailTpPermission @default(VIEW)
+
+  template EmailTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  user     Users         @relation("EmailTpSharedWith", fields: [sharedWith], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([templateId, sharedWith])
+  @@map("email_tp_share")
 }
