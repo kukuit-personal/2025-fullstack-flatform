@@ -5,6 +5,7 @@ import { NextIntlClientProvider, useMessages } from "next-intl";
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import "@/styles/globals.css";
+import "grapesjs/dist/css/grapes.min.css";
 
 // Font cấu hình
 const inter = Inter({

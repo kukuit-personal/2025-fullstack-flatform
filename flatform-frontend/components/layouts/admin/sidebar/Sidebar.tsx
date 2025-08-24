@@ -28,7 +28,7 @@ export default function Sidebar({
   const navItems = [
     { label: "Dashboard", path: "/admin/dashboard", icon: LayoutDashboard },
     { label: "Users", path: "/admin/users", icon: Users },
-    { label: "Products", path: "/admin/products", icon: Package },
+    { label: "Email Templates", path: "/admin/templates", icon: Package },
     {
       label: "Admin",
       icon: File,

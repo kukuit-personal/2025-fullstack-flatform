@@ -14,11 +14,14 @@ import UserForm from "./components/UserForm";
 export default function UsersPage() {
   const searchParams = useSearchParams();
 
+  const PAGE_SIZE = 10;
+
   const [users, setUsers] = useState<User[]>([]);
   const [page, setPage] = useState(Number(searchParams.get("page")) || 1);
   const [status, setStatus] = useState(searchParams.get("status") || "all");
   const [keyword, setKeyword] = useState(searchParams.get("q") || "");
   const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
   const [loadingIds, setLoadingIds] = useState<string[]>([]);
   const [isTableDisabled, setIsTableDisabled] = useState(false);
 
@@ -33,10 +36,11 @@ export default function UsersPage() {
           status: status !== "all" ? status : undefined,
           email: keyword || undefined,
           page,
-          limit: 10,
+          limit: PAGE_SIZE,
         },
       });
       setUsers(res.data.data);
+      setTotalItems(res.data.total || 0);
       setTotalPages(res.data.totalPages || 1);
     } catch (error) {
       toast.error("Không thể tải danh sách người dùng");
@@ -47,6 +51,7 @@ export default function UsersPage() {
   useEffect(() => {
     setPage(1);
   }, [status, keyword]);
+
   useEffect(() => {
     fetchUsers();
   }, [page, status, keyword]);
@@ -97,11 +102,11 @@ export default function UsersPage() {
   };
 
   const showingText = useMemo(() => {
-    const start = users.length ? (page - 1) * 10 + 1 : 0;
-    const end = (page - 1) * 10 + users.length;
-    const total = totalPages * 10;
-    return `Showing ${start}-${end} of ${total}`;
-  }, [users, page, totalPages]);
+    if (totalItems === 0) return "Showing 0-0 of 0";
+    const start = (page - 1) * PAGE_SIZE + 1;
+    const end = Math.min((page - 1) * PAGE_SIZE + users.length, totalItems);
+    return `Showing ${start}-${end} of ${totalItems}`;
+  }, [users.length, page, totalItems]);
 
   return (
     <div className="space-y-6">
@@ -115,17 +120,17 @@ export default function UsersPage() {
       </div>
 
       {/* header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center gap-3">
         <h1 className="text-3xl font-bold tracking-tight">Users</h1>
         <button
           onClick={openCreate}
           className="inline-flex items-center gap-2 rounded-lg bg-black px-4 py-1 text-white shadow hover:bg-gray-900"
         >
-          + New User
+          + Add New
         </button>
       </div>
 
-      {/* filTer */}
+      {/* filter */}
       <div className="">
         <form
           onSubmit={handleSearch}

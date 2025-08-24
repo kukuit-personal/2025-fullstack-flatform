@@ -11,6 +11,8 @@
   "dependencies": {
     "@tanstack/react-table": "^8.21.3",
     "axios": "^1.10.0",
+    "grapesjs": "^0.22.12",
+    "grapesjs-preset-newsletter": "^1.0.2",
     "js-cookie": "^3.0.5",
     "lucide-react": "^0.525.0",
     "negotiator": "^1.0.0",
