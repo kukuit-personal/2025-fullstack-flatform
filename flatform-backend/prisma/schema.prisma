@@ -366,7 +366,7 @@ model EmailTpStatus {
   @@map("email_tp_status")
 }
 
-// ---------- KHÁCH HÀNG (mới) ----------
+// ---------- KHÁCH HÀNG ----------
 model EmailCustomer {
   id      String  @id @default(cuid())
   name    String

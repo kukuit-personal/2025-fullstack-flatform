@@ -15,7 +15,6 @@ async function main() {
   const systemStatuses = [
     { id: 0, status: 'disabled' },
     { id: 1, status: 'active' },
-    { id: 2, status: 'temp' },
   ];
 
   for (const s of systemStatuses) {
