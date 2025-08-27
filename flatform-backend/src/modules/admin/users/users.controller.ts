@@ -1,6 +1,18 @@
-import { 
-  Body, Controller, Delete, Get, Param, Post, Put, Patch, BadRequestException,
-  ParseIntPipe, Query, DefaultValuePipe, HttpCode, HttpStatus
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Post,
+  Put,
+  Patch,
+  BadRequestException,
+  ParseIntPipe,
+  Query,
+  DefaultValuePipe,
+  HttpCode,
+  HttpStatus,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
@@ -10,7 +22,7 @@ import { Roles } from '@/common/decorators/roles.decorator';
 import { ApiTags, ApiOperation, ApiQuery, ApiResponse } from '@nestjs/swagger';
 
 @ApiTags('Users')
-@Controller('users')
+@Controller('admin/users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
@@ -48,10 +60,7 @@ export class UsersController {
   @Put(':id')
   @ApiOperation({ summary: 'Update user info' })
   @ApiResponse({ status: 200, description: 'User updated' })
-  async update(
-    @Param('id') id: string,
-    @Body() dto: UpdateUserDto,
-  ) {
+  async update(@Param('id') id: string, @Body() dto: UpdateUserDto) {
     return this.usersService.updateUser(id, dto);
   }
 
@@ -73,16 +82,21 @@ export class UsersController {
     @Body('status') status: 'active' | 'disable',
   ) {
     if (!['active', 'disable'].includes(status)) {
-      throw new BadRequestException('Invalid status')
+      throw new BadRequestException('Invalid status');
     }
 
-    return this.usersService.updateStatus(id, status)
+    return this.usersService.updateStatus(id, status);
   }
 
   @Roles('admin')
-  @Get("filter/search")
+  @Get('filter/search')
   @ApiOperation({ summary: 'Get all users with filters and pagination' })
-  @ApiQuery({ name: 'status', required: false, enum: ['all', 'active', 'disable'], example: 'all' })
+  @ApiQuery({
+    name: 'status',
+    required: false,
+    enum: ['all', 'active', 'disable'],
+    example: 'all',
+  })
   @ApiQuery({ name: 'email', required: false, example: 'abc@example.com' })
   @ApiQuery({ name: 'page', required: false, example: 1 })
   @ApiQuery({ name: 'limit', required: false, example: 10 })
@@ -96,5 +110,4 @@ export class UsersController {
       email,
     });
   }
-
 }

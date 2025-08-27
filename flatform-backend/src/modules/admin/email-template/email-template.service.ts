@@ -1,187 +1,159 @@
 import {
   Injectable,
-  NotFoundException,
   ForbiddenException,
+  NotFoundException,
+  ConflictException,
 } from '@nestjs/common';
-import { EmailTemplateRepository } from './email-template.repository';
-import { Prisma, EmailTpPermission } from '@prisma/client';
+import { PrismaService } from '@/prisma/prisma.service';
 import { CreateEmailTemplateDto } from './dto/create-email-template.dto';
 import { UpdateEmailTemplateDto } from './dto/update-email-template.dto';
-import {
-  EmailTemplateSortBy,
-  SearchEmailTemplatesDto,
-} from './dto/search-email-templates.dto';
+import { SearchEmailTemplatesDto } from './dto/search-email-templates.dto';
+import { ulid } from 'ulid';
+import { Prisma } from '@prisma/client';
 
 const STATUS_DISABLED = 0;
 const STATUS_ACTIVE = 1;
 
+type Actor = { id: string; role?: string };
+
 @Injectable()
 export class EmailTemplateService {
-  constructor(private readonly repo: EmailTemplateRepository) {}
+  constructor(private readonly prisma: PrismaService) {}
 
-  async create(userId: string, dto: CreateEmailTemplateDto) {
-    const { tagIds = [], ...rest } = dto;
-
-    const data: Prisma.EmailTemplateCreateInput = {
-      name: rest.name,
-      slug: rest.slug ?? null,
-      description: rest.description ?? null,
-      html: rest.html,
-      hasImages: rest.hasImages ?? false,
-      price: rest.price as any, // Prisma Decimal: number|string đều được
-      currency: rest.currency ?? 'USD',
-      status: { connect: { id: rest.statusId ?? STATUS_ACTIVE } },
-      creator: { connect: { id: userId } },
-      customer: rest.customerId
-        ? { connect: { id: rest.customerId } }
-        : undefined,
-    };
-
-    const created = await this.repo.create({
-      data,
-      include: {
-        tags: true,
-        status: true,
-        creator: {
-          select: {
-            id: true,
-            email: true,
-            profile: { select: { name: true } },
-          },
-        },
-      },
-    });
-
-    if (tagIds.length) {
-      await this.repo.upsertTemplateTags(created.id, tagIds);
-    }
-
-    return created;
+  // =========================
+  // Helpers
+  // =========================
+  private isAdmin(actor: Actor) {
+    return actor?.role === 'admin';
   }
 
-  async search(userId: string, q: SearchEmailTemplatesDto) {
-    const page = Number(q.page ?? '1');
-    const limit = Math.min(50, Number(q.limit ?? '6'));
+  /**
+   * Điều kiện access cho user thường (không phải admin):
+   * - Là chủ sở hữu (userId = actor.id), hoặc
+   * - Được share (shares.some({ sharedWith = actor.id }))
+   */
+  private accessWhere(actor: Actor) {
+    return {
+      OR: [
+        { userId: actor.id },
+        { shares: { some: { sharedWith: actor.id } } },
+      ],
+    };
+  }
+
+  private ensureCanEditTemplate(actor: Actor, tmpl: any) {
+    if (this.isAdmin(actor)) return; // admin luôn được quyền
+    const isOwner = tmpl.userId === actor.id;
+    const shared = (tmpl.shares || []) as Array<{
+      sharedWith: string;
+      permission: string;
+    }>;
+    const canEditByShare = shared.some(
+      (s) =>
+        s.sharedWith === actor.id &&
+        (s.permission === 'EDIT' || s.permission === 'OWNER'),
+    );
+    if (!isOwner && !canEditByShare) {
+      throw new ForbiddenException(
+        'You do not have permission to modify this template.',
+      );
+    }
+  }
+
+  private ensureCanViewTemplate(actor: Actor, tmpl: any) {
+    if (this.isAdmin(actor)) return; // admin luôn được quyền
+    const isOwner = tmpl.userId === actor.id;
+    const shared = (tmpl.shares || []) as Array<{ sharedWith: string }>;
+    const canViewByShare = shared.some((s) => s.sharedWith === actor.id);
+    if (!isOwner && !canViewByShare) {
+      throw new ForbiddenException(
+        'You do not have permission to view this template.',
+      );
+    }
+  }
+
+  private handlePrismaError(e: unknown): never {
+    if (e instanceof Prisma.PrismaClientKnownRequestError) {
+      // P2002: unique constraint failed (ví dụ slug)
+      if (e.code === 'P2002') {
+        const tgt = e.meta?.target as unknown;
+        const targets = Array.isArray(tgt) ? tgt : [String(tgt ?? '')];
+        const isSlug = targets.some((t) =>
+          String(t).toLowerCase().includes('slug'),
+        );
+        if (isSlug) {
+          throw new ConflictException(
+            'Slug đã tồn tại. Vui lòng chọn slug khác.',
+          );
+        }
+        throw new ConflictException(
+          `Dữ liệu bị trùng (unique): ${targets.filter(Boolean).join(', ')}`,
+        );
+      }
+    }
+    throw e;
+  }
+
+  // =========================
+  // Create
+  // =========================
+  async create(actor: Actor, dto: CreateEmailTemplateDto) {
+    try {
+      return await this.prisma.emailTemplate.create({
+        data: {
+          id: ulid(),
+          ...dto,
+          userId: actor.id, // FK tới User
+          statusId: STATUS_ACTIVE, // dùng statusId (FK)
+        },
+      });
+    } catch (e) {
+      this.handlePrismaError(e);
+    }
+  }
+
+  // =========================
+  // Search / List
+  // =========================
+  async search(actor: Actor, query: SearchEmailTemplatesDto) {
+    const page = Number(query.page) || 1;
+    const limit = Number(query.limit) || 10;
     const skip = (page - 1) * limit;
 
-    const statusId = q.statusId ? Number(q.statusId) : STATUS_ACTIVE;
-    const tagIds = q.tagIds
-      ? q.tagIds
-          .split(',')
-          .map((x) => x.trim())
-          .filter(Boolean)
-      : [];
-    const hasImages =
-      typeof q.hasImages === 'string'
-        ? q.hasImages.toLowerCase() === 'true'
-        : undefined;
+    const keyword =
+      (query as any).keyword?.trim() || (query as any).q?.trim() || undefined;
 
-    const createdFrom = q.createdFrom
-      ? new Date(`${q.createdFrom}T00:00:00.000Z`)
-      : undefined;
-    const createdTo = q.createdTo
-      ? new Date(`${q.createdTo}T23:59:59.999Z`)
-      : undefined;
-
-    // Quyền xem: owner hoặc shared với user
-    const accessWhere: Prisma.EmailTemplateWhereInput = {
-      OR: [
-        { userId }, // owner
-        {
-          shares: {
-            some: {
-              sharedWith: userId,
-              permission: {
-                in: [
-                  EmailTpPermission.VIEW,
-                  EmailTpPermission.EDIT,
-                  EmailTpPermission.OWNER,
-                ],
-              },
-            },
-          },
-        },
-      ],
+    const baseWhere: any = {
+      ...(keyword && {
+        OR: [
+          { name: { contains: keyword, mode: 'insensitive' } },
+          { slug: { contains: keyword, mode: 'insensitive' } },
+          { description: { contains: keyword, mode: 'insensitive' } },
+          // { html: { contains: keyword, mode: 'insensitive' } }, // nếu cần
+        ],
+      }),
+      ...((query as any).statusId && {
+        statusId: Number((query as any).statusId),
+      }),
     };
 
-    const textWhere = q.q
-      ? {
-          OR: [
-            { name: { contains: q.q, mode: 'insensitive' } },
-            { description: { contains: q.q, mode: 'insensitive' } },
-          ],
-        }
-      : {};
+    // admin -> bỏ qua owner/shared; user thường -> thêm accessWhere
+    const where = this.isAdmin(actor)
+      ? baseWhere
+      : { AND: [baseWhere, this.accessWhere(actor)] };
 
-    const tagWhere =
-      tagIds.length || q.tag
-        ? {
-            tags: {
-              some: {
-                OR: [
-                  ...(tagIds.length ? [{ tagId: { in: tagIds } }] : []),
-                  ...(q.tag
-                    ? [
-                        {
-                          tag: {
-                            name: { contains: q.tag, mode: 'insensitive' },
-                          },
-                        },
-                      ]
-                    : []),
-                ],
-              },
-            },
-          }
-        : {};
-
-    const dateWhere =
-      createdFrom || createdTo
-        ? {
-            createdAt: {
-              gte: createdFrom,
-              lte: createdTo,
-            },
-          }
-        : {};
-
-    const where: Prisma.EmailTemplateWhereInput = {
-      AND: [
-        accessWhere,
-        { statusId },
-        textWhere,
-        tagWhere,
-        dateWhere,
-        ...(hasImages !== undefined ? [{ hasImages }] : []),
-      ],
-    };
-
-    const orderBy: Prisma.EmailTemplateOrderByWithRelationInput =
-      q.sortBy === EmailTemplateSortBy.price
-        ? { price: 'asc' }
-        : q.sortBy === EmailTemplateSortBy.createdAt
-          ? { createdAt: 'desc' }
-          : { updatedAt: 'desc' }; // default
-
-    const [data, total] = await Promise.all([
-      this.repo.findMany({
+    const [total, data] = await this.prisma.$transaction([
+      this.prisma.emailTemplate.count({ where }),
+      this.prisma.emailTemplate.findMany({
         where,
-        orderBy,
         skip,
         take: limit,
+        orderBy: { updatedAt: 'desc' },
         include: {
-          status: true,
-          creator: {
-            select: {
-              id: true,
-              email: true,
-              profile: { select: { name: true } },
-            },
-          },
-          tags: { include: { tag: true } },
+          shares: true,
+          creator: { select: { id: true, email: true } }, // quan hệ user theo schema
         },
       }),
-      this.repo.count({ where }),
     ]);
 
     return {
@@ -193,99 +165,60 @@ export class EmailTemplateService {
     };
   }
 
-  private async findAccessible(
-    templateId: string,
-    userId: string,
-    needEdit = false,
-  ) {
-    const entity = await this.repo.findFirst({
-      where: {
-        id: templateId,
-        OR: [
-          { userId }, // owner
-          {
-            shares: {
-              some: {
-                sharedWith: userId,
-                permission: needEdit
-                  ? { in: [EmailTpPermission.EDIT, EmailTpPermission.OWNER] }
-                  : {
-                      in: [
-                        EmailTpPermission.VIEW,
-                        EmailTpPermission.EDIT,
-                        EmailTpPermission.OWNER,
-                      ],
-                    },
-              },
-            },
-          },
-        ],
+  // =========================
+  // Get one
+  // =========================
+  async findOne(actor: Actor, id: string) {
+    const tmpl = await this.prisma.emailTemplate.findUnique({
+      where: { id },
+      include: {
+        shares: true,
+        creator: { select: { id: true, email: true } },
       },
-      include: { status: true, tags: { include: { tag: true } } },
     });
+    if (!tmpl) throw new NotFoundException('Template not found');
 
-    if (!entity)
-      throw new NotFoundException('Email template not found or access denied');
-    return entity;
+    this.ensureCanViewTemplate(actor, tmpl);
+    return tmpl;
   }
 
-  async findOne(userId: string, templateId: string) {
-    return this.findAccessible(templateId, userId, false);
-  }
-
-  async update(
-    userId: string,
-    templateId: string,
-    dto: UpdateEmailTemplateDto,
-  ) {
-    // cần quyền EDIT (hoặc owner)
-    await this.findAccessible(templateId, userId, true);
-
-    const { tagIds, ...rest } = dto;
-
-    const updated = await this.repo.update({
-      where: { id: templateId },
-      data: {
-        name: rest.name,
-        slug: rest.slug,
-        description: rest.description,
-        html: rest.html,
-        hasImages: rest.hasImages,
-        price: (rest.price as any) ?? undefined,
-        currency: rest.currency,
-        customer: rest.customerId
-          ? { connect: { id: rest.customerId } }
-          : rest.customerId === null
-            ? { disconnect: true }
-            : undefined,
-        status:
-          typeof rest.statusId === 'number'
-            ? { connect: { id: rest.statusId } }
-            : undefined,
-      },
-      include: { status: true, tags: { include: { tag: true } } },
+  // =========================
+  // Update
+  // =========================
+  async update(actor: Actor, id: string, dto: UpdateEmailTemplateDto) {
+    const tmpl = await this.prisma.emailTemplate.findUnique({
+      where: { id },
+      include: { shares: true },
     });
+    if (!tmpl) throw new NotFoundException('Template not found');
 
-    if (tagIds) {
-      await this.repo.upsertTemplateTags(templateId, tagIds);
+    this.ensureCanEditTemplate(actor, tmpl);
+
+    try {
+      return await this.prisma.emailTemplate.update({
+        where: { id },
+        data: { ...dto },
+      });
+    } catch (e) {
+      this.handlePrismaError(e);
     }
-
-    return updated;
   }
 
-  async softDelete(userId: string, templateId: string) {
-    // Chỉ owner được xoá
-    const entity = await this.repo.findFirst({
-      where: { id: templateId, userId },
+  // =========================
+  // Soft delete
+  // =========================
+  async softDelete(actor: Actor, id: string) {
+    const tmpl = await this.prisma.emailTemplate.findUnique({
+      where: { id },
+      include: { shares: true },
     });
-    if (!entity)
-      throw new NotFoundException('Email template not found or access denied');
+    if (!tmpl) throw new NotFoundException('Template not found');
 
-    await this.repo.update({
-      where: { id: templateId },
+    this.ensureCanEditTemplate(actor, tmpl);
+
+    await this.prisma.emailTemplate.update({
+      where: { id },
       data: { statusId: STATUS_DISABLED },
     });
-
-    return { success: true };
   }
 }
