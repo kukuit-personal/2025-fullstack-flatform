@@ -4,7 +4,6 @@ import { useEffect, useRef, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
-import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 
 import { createEmailTemplate } from "./service";
@@ -25,6 +24,7 @@ export default function NewEmailTemplatePage() {
   // ====== Form ======
   const defaultCurrency =
     (search.get("currency") as CurrencyEnum) || CurrencyEnum.VND;
+
   const form = useForm<NewTemplateFormValues>({
     resolver: zodResolver(NewTemplateForm),
     defaultValues: {
@@ -52,6 +52,7 @@ export default function NewEmailTemplatePage() {
       const [{ default: grapesjs }, { default: presetNewsletter }] =
         await Promise.all([loadGrapes(), loadNewsletterPreset()]);
       if (!mounted || !containerRef.current) return;
+
       const editor = grapesjs.init({
         container: containerRef.current,
         height: "calc(100vh - 260px)",
@@ -62,8 +63,41 @@ export default function NewEmailTemplatePage() {
           "grapesjs-preset-newsletter": { showStylesOnChange: true },
         },
       });
+
+      // Khung email 600px mặc định (có optional chaining để tránh TS2532)
+      try {
+        const comps = editor?.getWrapper?.()?.components?.();
+        const hasContent = Array.isArray(comps)
+          ? comps.length > 0
+          : (comps?.length ?? 0) > 0;
+        if (!hasContent) {
+          editor.setComponents(`
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f5f7fb;">
+              <tbody>
+                <tr>
+                  <td align="center" style="padding:24px;">
+                    <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="background:#ffffff;">
+                      <tbody>
+                        <tr>
+                          <td style="padding:20px;">
+                            <!-- Drag & drop newsletter blocks here -->
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          `);
+        }
+      } catch (e) {
+        console.warn("Skip default wrapper:", e);
+      }
+
       editorRef.current = editor;
     })();
+
     return () => {
       mounted = false;
       editorRef.current?.destroy();
