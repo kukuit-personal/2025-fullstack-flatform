@@ -66,9 +66,9 @@ export default function UserForm({
     };
 
     if (isEdit && user?.id) {
-      await api.put(`/users/${user.id}`, payload);
+      await api.put(`/admin/users/${user.id}`, payload);
     } else {
-      await api.post("/users", payload);
+      await api.post("/admin/users", payload);
     }
 
     if (onSuccess) onSuccess();

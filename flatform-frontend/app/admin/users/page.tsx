@@ -31,7 +31,7 @@ export default function UsersPage() {
 
   const fetchUsers = async () => {
     try {
-      const res = await api.get("/users/filter/search", {
+      const res = await api.get("/admin/users/filter/search", {
         params: {
           status: status !== "all" ? status : undefined,
           email: keyword || undefined,
@@ -68,7 +68,7 @@ export default function UsersPage() {
     try {
       setLoadingIds((prev) => [...prev, user.id]);
       setIsTableDisabled(true);
-      await api.patch(`/users/${user.id}/status`, { status: newStatus });
+      await api.patch(`/admin/users/${user.id}/status`, { status: newStatus });
       setUsers((prev) =>
         prev.map((u) => (u.id === user.id ? { ...u, status: newStatus } : u))
       );
