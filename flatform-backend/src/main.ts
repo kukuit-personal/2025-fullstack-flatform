@@ -3,6 +3,8 @@ import { AppModule } from './app.module';
 import * as cookieParser from 'cookie-parser';
 import { ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
+import * as express from 'express';
+import { join } from 'path';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -11,13 +13,15 @@ async function bootstrap() {
   app.use(cookieParser());
 
   // ✅ Validation pipe để tự động validate dữ liệu đầu vào
-  app.useGlobalPipes(new ValidationPipe({
-    // whitelist: true, // chỉ nhận field được định nghĩa trong DTO
-    // forbidNonWhitelisted: true, // chặn field lạ
-    transform: true, // auto transform param (ví dụ id: string -> number)
-  }));
+  app.useGlobalPipes(
+    new ValidationPipe({
+      // whitelist: true, // chỉ nhận field được định nghĩa trong DTO
+      // forbidNonWhitelisted: true, // chặn field lạ
+      transform: true, // auto transform param (ví dụ id: string -> number)
+    }),
+  );
 
-  // ✅ Đặt tiền tố cho tất cả các route
+  // ✅ Global prefix for all routes
   app.setGlobalPrefix('api');
 
   // ✅ CORS cho phép frontend truy cập và nhận cookie
@@ -36,6 +40,10 @@ async function bootstrap() {
 
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('docs', app, document);
+
+  // ✅ Static assets (ảnh, file upload...)
+  const STORAGE_DIR = process.env.STORAGE_DIR || 'storage';
+  app.use('/assets', express.static(join(process.cwd(), STORAGE_DIR)));
 
   await app.listen(3001);
 }

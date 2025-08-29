@@ -8,6 +8,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { NotedModule } from './modules/noted/noted.module';
 import { UsersModule } from './modules/admin/users/users.module';
 import { EmailTemplateModule } from './modules/admin/email-template/email-template.module';
+import { FilesModule } from './modules/files/files.module';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { EmailTemplateModule } from './modules/admin/email-template/email-templa
     UsersModule,
     NotedModule,
     EmailTemplateModule,
+    FilesModule,
     ConfigModule.forRoot({ isGlobal: true }),
   ],
   providers: [

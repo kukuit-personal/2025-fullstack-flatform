@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { ulid } from "ulid";
 
 import { createEmailTemplate } from "./service";
 import { CurrencyEnum, CURRENCY_OPTIONS } from "./constants";
@@ -14,12 +15,59 @@ import { NewTemplateForm, NewTemplateFormValues } from "./types";
 const loadGrapes = () => import("grapesjs");
 const loadNewsletterPreset = () => import("grapesjs-preset-newsletter");
 
+// ====== Kiểu metadata ảnh đã upload ======
+type UploadedImage = {
+  url: string;
+  filename?: string;
+  mimeType?: string;
+  width?: number;
+  height?: number;
+  bytes?: number;
+};
+
+type UploadProvider = "cloudinary" | "my-storage";
+
+// ====== HTML mặc định cho email 600px ======
+const DEFAULT_HTML = `
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f5f7fb;">
+  <tbody>
+    <tr>
+      <td align="center" style="padding:24px;">
+        <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="background:#ffffff;">
+          <tbody>
+            <tr>
+              <td style="padding:20px;">
+                <!-- Drag & drop newsletter blocks here -->
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </td>
+    </tr>
+  </tbody>
+</table>
+`;
+
 export default function NewEmailTemplatePage() {
   const router = useRouter();
   const search = useSearchParams();
 
   const containerRef = useRef<HTMLDivElement>(null);
   const editorRef = useRef<any>(null);
+
+  // Lưu metadata ảnh để dùng khi Save
+  const uploadedRef = useRef<Map<string, UploadedImage>>(new Map());
+  const MAX_BYTES = 5 * 1024 * 1024; // 5MB
+
+  // ⚠️ draftId sinh 1 lần khi vào trang
+  const draftIdRef = useRef<string>(ulid());
+
+  // Provider từ env (mặc định cloudinary)
+  const uploadProvider: UploadProvider =
+    (process.env.NEXT_PUBLIC_UPLOAD_PROVIDER as UploadProvider) || "cloudinary";
+
+  // API base cho my-storage
+  const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL; // ví dụ http://localhost:3001/api
 
   // ====== Form ======
   const defaultCurrency =
@@ -53,6 +101,17 @@ export default function NewEmailTemplatePage() {
         await Promise.all([loadGrapes(), loadNewsletterPreset()]);
       if (!mounted || !containerRef.current) return;
 
+      const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+      const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
+      const baseFolder =
+        process.env.NEXT_PUBLIC_CLOUDINARY_FOLDER || "email-templates";
+
+      if (uploadProvider === "cloudinary" && (!cloudName || !uploadPreset)) {
+        console.warn(
+          "Cloudinary env is missing: NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME or NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET"
+        );
+      }
+
       const editor = grapesjs.init({
         container: containerRef.current,
         height: "calc(100vh - 260px)",
@@ -62,34 +121,123 @@ export default function NewEmailTemplatePage() {
         pluginsOpts: {
           "grapesjs-preset-newsletter": { showStylesOnChange: true },
         },
+        // ⬇️ đặt layout mặc định ngay khi init
+        components: DEFAULT_HTML,
+        assetManager: {
+          upload: false, // tự xử lý
+          uploadFile: async (e: any) => {
+            const files: FileList =
+              e?.dataTransfer?.files || e?.target?.files || [];
+            for (const file of Array.from(files)) {
+              // 1) Giới hạn 5MB
+              if (file.size > MAX_BYTES) {
+                alert(`"${file.name}" quá 5MB. Vui lòng chọn ảnh nhỏ hơn.`);
+                continue;
+              }
+
+              if (uploadProvider === "my-storage") {
+                // === Upload về backend my-storage (tmp/<draftId>) ===
+                if (!apiBase) {
+                  alert("Thiếu NEXT_PUBLIC_API_BASE_URL cho my-storage");
+                  continue;
+                }
+                const fd = new FormData();
+                fd.append("file", file);
+                const res = await fetch(
+                  `${apiBase}/files/upload?draftId=${draftIdRef.current}`,
+                  { method: "POST", body: fd, credentials: "include" }
+                );
+                if (!res.ok) {
+                  const errText = await res.text();
+                  throw new Error(`my-storage upload failed: ${errText}`);
+                }
+                const json = await res.json(); // { url, filename, mimeType, bytes, width?, height? }
+                const fileUrl: string = json.url;
+
+                let meta: UploadedImage = {
+                  url: fileUrl,
+                  filename: json.filename ?? file.name,
+                  mimeType: json.mimeType ?? file.type,
+                  bytes: json.bytes ?? file.size,
+                  width: json.width,
+                  height: json.height,
+                };
+                // nếu backend không đo w/h thì đo ở client
+                if (!meta.width || !meta.height) {
+                  const img = new Image();
+                  img.src = fileUrl;
+                  await img.decode();
+                  meta.width = img.naturalWidth;
+                  meta.height = img.naturalHeight;
+                }
+
+                editor.AssetManager.add({
+                  src: fileUrl,
+                  name: meta.filename || file.name,
+                  type: "image",
+                });
+                uploadedRef.current.set(fileUrl, meta);
+              } else {
+                // === Cloudinary unsigned ===
+                const form = new FormData();
+                form.append("file", file);
+                if (uploadPreset) form.append("upload_preset", uploadPreset);
+                // đưa ảnh theo draftId để dễ quản lý sau này
+                const folderFinal = baseFolder
+                  ? `${baseFolder}/tmp/${draftIdRef.current}`
+                  : `tmp/${draftIdRef.current}`;
+                form.append("folder", folderFinal);
+
+                const res = await fetch(
+                  `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
+                  { method: "POST", body: form }
+                );
+                if (!res.ok) {
+                  const errText = await res.text();
+                  throw new Error(`Cloudinary upload failed: ${errText}`);
+                }
+                const json = await res.json(); // { secure_url, bytes, width, height, ... }
+                const cdnUrl: string = json.secure_url;
+
+                editor.AssetManager.add({
+                  src: cdnUrl,
+                  name: file.name,
+                  type: "image",
+                });
+
+                uploadedRef.current.set(cdnUrl, {
+                  url: cdnUrl,
+                  filename: file.name,
+                  mimeType: file.type,
+                  bytes: json.bytes ?? file.size,
+                  width: json.width,
+                  height: json.height,
+                });
+              }
+            }
+          },
+        },
       });
 
-      // Khung email 600px mặc định (có optional chaining để tránh TS2532)
+      // Fallback đảm bảo có layout mặc định khi editor đã load
+      editor.on("load", () => {
+        try {
+          const comps = editor.getWrapper()?.components();
+          const count =
+            comps && typeof (comps as any).length === "number"
+              ? (comps as any).length
+              : 0;
+          if (count === 0) editor.setComponents(DEFAULT_HTML);
+        } catch (err) {
+          console.warn("Default wrapper fallback failed:", err);
+        }
+      });
+
+      // (giữ code cũ) Khung email 600px mặc định nếu phát hiện HTML rỗng
       try {
-        const comps = editor?.getWrapper?.()?.components?.();
-        const hasContent = Array.isArray(comps)
-          ? comps.length > 0
-          : (comps?.length ?? 0) > 0;
-        if (!hasContent) {
-          editor.setComponents(`
-            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f5f7fb;">
-              <tbody>
-                <tr>
-                  <td align="center" style="padding:24px;">
-                    <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="background:#ffffff;">
-                      <tbody>
-                        <tr>
-                          <td style="padding:20px;">
-                            <!-- Drag & drop newsletter blocks here -->
-                          </td>
-                        </tr>
-                      </tbody>
-                    </table>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          `);
+        const hasAnyContent = !!editor.getHtml()?.trim();
+        if (!hasAnyContent) {
+          editor.setComponents(DEFAULT_HTML);
         }
       } catch (e) {
         console.warn("Skip default wrapper:", e);
@@ -103,7 +251,7 @@ export default function NewEmailTemplatePage() {
       editorRef.current?.destroy();
       editorRef.current = null;
     };
-  }, []);
+  }, [uploadProvider, apiBase]);
 
   const getFullHtml = useCallback(() => {
     const ed = editorRef.current;
@@ -111,10 +259,10 @@ export default function NewEmailTemplatePage() {
     const htmlBody = ed.getHtml({ cleanId: true });
     const css = ed.getCss();
     return `<!doctype html><html><head>
-<meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>${getValues("name") || "Template"}</title>
-<style>${css}</style>
-</head><body>${htmlBody}</body></html>`;
+            <meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+            <title>${getValues("name") || "Template"}</title>
+            <style>${css}</style>
+            </head><body>${htmlBody}</body></html>`;
   }, [getValues]);
 
   // ====== Mutation ======
@@ -125,7 +273,20 @@ export default function NewEmailTemplatePage() {
 
   const onSubmit = async (values: any) => {
     const html = getFullHtml();
-    const payload = toCreatePayload(values, html);
+
+    // Lấy danh sách URL ảnh đang dùng trong HTML
+    const doc = new DOMParser().parseFromString(html, "text/html");
+    const urls = Array.from(doc.querySelectorAll("img"))
+      .map((img) => img.getAttribute("src"))
+      .filter((u): u is string => !!u);
+
+    // Map sang metadata đã lưu
+    const images = urls
+      .map((u) => uploadedRef.current.get(u))
+      .filter((x): x is UploadedImage => !!x);
+
+    // 🔑 thêm draftId vào payload
+    const payload = toCreatePayload(values, html, images, draftIdRef.current);
     await mutateAsync(payload);
   };
 
