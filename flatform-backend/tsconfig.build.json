@@ -5,6 +5,7 @@
     "outDir": "./dist",
     "baseUrl": "./src",
     "paths": {
+      "@/prisma/*": ["../prisma/*"],
       "@/*": ["*"]
     }
   }

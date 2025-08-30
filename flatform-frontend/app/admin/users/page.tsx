@@ -1,165 +1,252 @@
-'use client'
+"use client";
 
-import { useEffect, useState } from 'react'
-import Link from 'next/link'
-import { useSearchParams, useRouter } from 'next/navigation'
-import api from '@/lib/api'
-import { User } from './types'
-import UsersTable from './components/UsersTable'
-import { toast } from 'react-toastify'
-import 'react-toastify/dist/ReactToastify.css'
+import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import api from "@/lib/api";
+import { User } from "./types";
+import UsersTable from "./components/UsersTable";
+import { toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
+import Modal from "./components/Modal";
+import UserForm from "./components/UserForm";
 
 export default function UsersPage() {
-  const router = useRouter()
-  const searchParams = useSearchParams()
+  const searchParams = useSearchParams();
 
-  const [users, setUsers] = useState<User[]>([])
-  const [page, setPage] = useState(Number(searchParams.get('page')) || 1)
-  const [status, setStatus] = useState(searchParams.get('status') || 'all')
-  const [keyword, setKeyword] = useState(searchParams.get('q') || '')
-  const [totalPages, setTotalPages] = useState(1)
-  const [loadingIds, setLoadingIds] = useState<string[]>([])
-  const [isTableDisabled, setIsTableDisabled] = useState(false)
+  const PAGE_SIZE = 10;
+
+  const [users, setUsers] = useState<User[]>([]);
+  const [page, setPage] = useState(Number(searchParams.get("page")) || 1);
+  const [status, setStatus] = useState(searchParams.get("status") || "all");
+  const [keyword, setKeyword] = useState(searchParams.get("q") || "");
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
+  const [loadingIds, setLoadingIds] = useState<string[]>([]);
+  const [isTableDisabled, setIsTableDisabled] = useState(false);
+
+  // popup state
+  const [openModal, setOpenModal] = useState(false);
+  const [editingUser, setEditingUser] = useState<User | null>(null);
 
   const fetchUsers = async () => {
     try {
-      const res = await api.get('/users/filter/search', {
+      const res = await api.get("/admin/users/filter/search", {
         params: {
-          status: status !== 'all' ? status : undefined,
+          status: status !== "all" ? status : undefined,
           email: keyword || undefined,
           page,
-          limit: 10,
+          limit: PAGE_SIZE,
         },
-      })
-
-      setUsers(res.data.data)
-      setTotalPages(res.data.totalPages || 1)
+      });
+      setUsers(res.data.data);
+      setTotalItems(res.data.total || 0);
+      setTotalPages(res.data.totalPages || 1);
     } catch (error) {
-      toast.error('Không thể tải danh sách người dùng')
-      console.error(error)
+      toast.error("Không thể tải danh sách người dùng");
+      console.error(error);
     }
-  }
-  
-  // ✅ Reset page = 1 khi status hoặc keyword thay đổi
-  useEffect(() => {
-    setPage(1)
-  }, [status, keyword])
+  };
 
-  // ✅ Gọi API khi page, status, keyword thay đổi
   useEffect(() => {
-    fetchUsers()
-  }, [page, status, keyword])
+    setPage(1);
+  }, [status, keyword]);
+
+  useEffect(() => {
+    fetchUsers();
+  }, [page, status, keyword]);
 
   const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault()
-    setPage(1)
-    fetchUsers()
-  }
+    e.preventDefault();
+    setPage(1);
+    fetchUsers();
+  };
 
   const handleToggleStatus = async (user: User) => {
-    const isDisabling = user.status === 'active'
-    const newStatus = isDisabling ? 'disable' : 'active'
-
+    const isDisabling = user.status === "active";
+    const newStatus = isDisabling ? "disable" : "active";
     try {
-      setLoadingIds((prev) => [...prev, user.id])
-      setIsTableDisabled(true)
-
-      // ✅ Gọi PATCH /users/:id/status
-      await api.patch(`/users/${user.id}/status`, { status: newStatus })
-
-      // ✅ Cập nhật local state để giữ nguyên vị trí
+      setLoadingIds((prev) => [...prev, user.id]);
+      setIsTableDisabled(true);
+      await api.patch(`/admin/users/${user.id}/status`, { status: newStatus });
       setUsers((prev) =>
-        prev.map((u) =>
-          u.id === user.id ? { ...u, status: newStatus } : u
-        )
-      )
-
+        prev.map((u) => (u.id === user.id ? { ...u, status: newStatus } : u))
+      );
       toast.success(
-        `Đã ${newStatus === 'disable' ? 'vô hiệu hóa' : 'kích hoạt'} user ${user.email}`
-      )
+        `Đã ${newStatus === "disable" ? "vô hiệu hóa" : "kích hoạt"} user ${
+          user.email
+        }`
+      );
     } catch (err) {
-      console.error('Thao tác thất bại:', err)
-      toast.error('Thao tác thất bại')
+      console.error("Thao tác thất bại:", err);
+      toast.error("Thao tác thất bại");
     } finally {
-      setLoadingIds((prev) => prev.filter((id) => id !== user.id))
-      setIsTableDisabled(false)
+      setLoadingIds((prev) => prev.filter((id) => id !== user.id));
+      setIsTableDisabled(false);
     }
-  }
+  };
+
+  // modal helpers
+  const openCreate = () => {
+    setEditingUser(null);
+    setOpenModal(true);
+  };
+  const openEdit = (user: User) => {
+    setEditingUser(user);
+    setOpenModal(true);
+  };
+  const closeModalAndRefresh = () => {
+    setOpenModal(false);
+    setEditingUser(null);
+    fetchUsers();
+  };
+
+  const showingText = useMemo(() => {
+    if (totalItems === 0) return "Showing 0-0 of 0";
+    const start = (page - 1) * PAGE_SIZE + 1;
+    const end = Math.min((page - 1) * PAGE_SIZE + users.length, totalItems);
+    return `Showing ${start}-${end} of ${totalItems}`;
+  }, [users.length, page, totalItems]);
 
   return (
     <div className="space-y-6">
+      {/* breadcrumb */}
       <div className="text-sm text-gray-500">
-        <Link href="/admin/dashboard" className="hover:underline">Admin</Link>
+        <Link href="/admin/dashboard" className="hover:underline">
+          Admin
+        </Link>
         <span className="mx-2">/</span>
         <span className="text-gray-800 font-medium">Users</span>
       </div>
 
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold">Quản lý Users</h1>
-        <Link
-          href="/admin/users/new"
-          className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded shadow"
+      {/* header */}
+      <div className="flex items-center gap-3">
+        <h1 className="text-3xl font-bold tracking-tight">Users</h1>
+        <button
+          onClick={openCreate}
+          className="inline-flex items-center gap-2 rounded-lg bg-black px-4 py-1 text-white shadow hover:bg-gray-900"
         >
-          + Thêm user
-        </Link>
+          + Add New
+        </button>
       </div>
 
-      <form
-        onSubmit={handleSearch}
-        className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-2 w-full"
+      {/* filter */}
+      <div className="">
+        <form
+          onSubmit={handleSearch}
+          className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center"
+        >
+          <select
+            value={status}
+            onChange={(e) => setStatus(e.target.value)}
+            className="py-2 min-w-[140px] rounded-lg border border-gray-300 px-3 text-sm"
+          >
+            <option value="all">Tất cả</option>
+            <option value="active">Hoạt động</option>
+            <option value="disable">Vô hiệu</option>
+          </select>
+
+          <input
+            type="text"
+            placeholder="Tìm email..."
+            className="py-2 w-full rounded-lg border border-gray-300 px-3 text-sm sm:w-64"
+            value={keyword}
+            onChange={(e) => setKeyword(e.target.value)}
+          />
+
+          <button
+            type="submit"
+            className="py-2 rounded-lg bg-gray-800 px-4 text-sm text-white hover:bg-gray-900 sm:w-auto"
+          >
+            Tìm
+          </button>
+        </form>
+      </div>
+
+      {/* card */}
+      <div className="rounded-2xl border border-gray-200 bg-white shadow-sm">
+        <div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="text-sm text-gray-500">{showingText}</div>
+        </div>
+
+        {/* table */}
+        <div className="">
+          <UsersTable
+            data={users}
+            onToggleStatus={handleToggleStatus}
+            loadingIds={loadingIds}
+            disabled={isTableDisabled}
+            onEdit={openEdit} // mở popup thay vì điều hướng
+          />
+        </div>
+
+        {/* pagination */}
+        <div className="flex items-center justify-end gap-2 border-t border-gray-300 px-4 pb-4 pt-3">
+          {/* Prev */}
+          <button
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            disabled={page === 1 || isTableDisabled}
+            className={`h-9 rounded-lg border px-3 text-sm transition
+      ${
+        page === 1
+          ? "cursor-not-allowed border-gray-300 bg-white text-gray-400"
+          : "border-gray-300 bg-white text-gray-700 hover:bg-gray-100"
+      }`}
+          >
+            Prev
+          </button>
+
+          {/* page numbers */}
+          {Array.from({ length: totalPages }, (_, i) => {
+            const idx = i + 1;
+            const isActive = page === idx;
+            return (
+              <button
+                key={idx}
+                onClick={() => setPage(idx)}
+                disabled={isTableDisabled}
+                className={`h-9 w-9 rounded-lg border text-sm transition
+          ${
+            isActive
+              ? "border-black bg-black font-semibold text-white"
+              : "border-gray-300 bg-white text-gray-700 hover:bg-gray-100"
+          }`}
+              >
+                {idx}
+              </button>
+            );
+          })}
+
+          {/* Next */}
+          <button
+            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+            disabled={page === totalPages || isTableDisabled}
+            className={`h-9 rounded-lg border px-3 text-sm transition
+      ${
+        page === totalPages
+          ? "cursor-not-allowed border-gray-300 bg-white text-gray-400"
+          : "border-gray-300 bg-white hover:bg-gray-100"
+      }`}
+          >
+            Next
+          </button>
+        </div>
+      </div>
+
+      {/* MODAL */}
+      <Modal
+        open={openModal}
+        onClose={() => setOpenModal(false)}
+        title={editingUser ? "Edit User" : "New User"}
+        width="max-w-xl"
       >
-        <select
-          value={status}
-          onChange={(e) => setStatus(e.target.value)}
-          className="h-10 px-3 border rounded text-sm min-w-[120px] sm:w-auto w-full"
-        >
-          <option value="all">Tất cả</option>
-          <option value="active">Hoạt động</option>
-          <option value="disable">Vô hiệu</option>
-        </select>
-
-        <input
-          type="text"
-          placeholder="Tìm email..."
-          className="h-10 px-3 border rounded text-sm w-full sm:w-64"
-          value={keyword}
-          onChange={(e) => setKeyword(e.target.value)}
+        <UserForm
+          isEdit={!!editingUser}
+          user={editingUser || undefined}
+          useRedirect={false}
+          onSuccess={closeModalAndRefresh}
         />
-
-        <button
-          type="submit"
-          className="h-10 px-4 bg-gray-800 hover:bg-gray-900 text-white rounded text-sm w-full sm:w-auto"
-        >
-          Tìm
-        </button>
-      </form>
-
-      <UsersTable
-        data={users}
-        onToggleStatus={handleToggleStatus}
-        loadingIds={loadingIds}
-        disabled={isTableDisabled}
-      />
-
-      <div className="flex flex-wrap gap-2 mt-6">
-  {Array.from({ length: totalPages }, (_, i) => (
-    <button
-      key={i}
-      onClick={() => setPage(i + 1)}
-      disabled={isTableDisabled}
-      className={`w-10 h-10 text-sm flex items-center justify-center rounded border transition 
-        ${
-          page === i + 1
-            ? 'bg-black text-white font-semibold border-black'
-            : 'bg-white text-gray-700 hover:bg-gray-100 border-gray-300'
-        }`}
-    >
-      {i + 1}
-    </button>
-  ))}
-</div>
-
-
+      </Modal>
     </div>
-  )
+  );
 }

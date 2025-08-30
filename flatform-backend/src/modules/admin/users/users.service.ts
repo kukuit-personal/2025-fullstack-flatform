@@ -2,7 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { UsersRepository } from './users.repository';
 import { CreateUserDto, UpdateUserDto } from './dto';
 import * as bcrypt from 'bcrypt';
-import { PrismaService } from '../../../prisma/prisma.service';
+import { PrismaService } from '@/prisma/prisma.service';
 import { ulid } from 'ulid';
 
 @Injectable()
@@ -110,70 +110,65 @@ export class UsersService {
   }
 
   async updateStatus(id: string, status: 'active' | 'disable') {
-    const user = await this.usersRepo.findById(id)
-    if (!user) throw new NotFoundException('User not found')
+    const user = await this.usersRepo.findById(id);
+    if (!user) throw new NotFoundException('User not found');
 
     return this.usersRepo.updateUser(id, {
       status,
       profile: {
         update: { status },
       },
-    })
+    });
   }
 
-
-async searchAllUsers({
-  page,
-  limit,
-  email,
-  status,
-}: {
-  page: number;
-  limit: number;
-  email?: string;
-  status?: 'all' | 'active' | 'disable';
-}) {
-  const whereCondition: any = {};
-
-  // Filter theo status
-  if (status && status !== 'all') {
-    whereCondition.status = status;
-  } else {
-    whereCondition.status = { in: ['active', 'disable'] };
-  }
-
-  // Filter theo email (Prisma 6 dùng search thay vì contains + mode)
-  if (email?.trim()) {
-    whereCondition.email = {
-      search: email.trim(),
-    };
-  }
-
-  // Truy vấn song song dữ liệu + tổng số lượng
-  const [data, total] = await this.prisma.$transaction([
-    this.prisma.users.findMany({
-      skip: (page - 1) * limit,
-      take: limit,
-      where: whereCondition,
-      orderBy: { createdAt: 'desc' },
-      include: {
-        profile: true,
-        role: true,
-      },
-    }),
-    this.prisma.users.count({ where: whereCondition }),
-  ]);
-
-  return {
-    data,
-    total,
+  async searchAllUsers({
     page,
     limit,
-    totalPages: Math.ceil(total / limit),
-  };
-}
+    email,
+    status,
+  }: {
+    page: number;
+    limit: number;
+    email?: string;
+    status?: 'all' | 'active' | 'disable';
+  }) {
+    const whereCondition: any = {};
 
+    // Filter theo status
+    if (status && status !== 'all') {
+      whereCondition.status = status;
+    } else {
+      whereCondition.status = { in: ['active', 'disable'] };
+    }
 
+    // Filter theo email (Prisma 6 dùng search thay vì contains + mode)
+    if (email?.trim()) {
+      whereCondition.email = {
+        search: email.trim(),
+      };
+    }
 
+    // Truy vấn song song dữ liệu + tổng số lượng
+    const [data, total] = await this.prisma.$transaction([
+      this.prisma.users.findMany({
+        skip: (page - 1) * limit,
+        take: limit,
+        where: whereCondition,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          profile: true,
+          role: true,
+        },
+      }),
+      this.prisma.users.count({ where: whereCondition }),
+    ]);
 
+    return {
+      data,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
+  }
 }
