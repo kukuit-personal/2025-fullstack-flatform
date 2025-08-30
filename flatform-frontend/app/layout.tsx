@@ -7,6 +7,7 @@ import { notFound } from "next/navigation";
 import "@/styles/globals.css";
 import "grapesjs/dist/css/grapes.min.css";
 import ReactQueryProvider from "./providers/ReactQueryProvider";
+import ToastProvider from "@/components/toast/ToastProvider";
 
 // Font cấu hình
 const inter = Inter({
@@ -40,7 +41,10 @@ export default function LocaleLayout({
         suppressHydrationWarning
       >
         <NextIntlClientProvider locale={locale} messages={messages}>
-          <ReactQueryProvider>{children}</ReactQueryProvider>
+          <ReactQueryProvider>
+            <ToastProvider />
+            {children}
+          </ReactQueryProvider>
         </NextIntlClientProvider>
       </body>
     </html>
