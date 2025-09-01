@@ -60,6 +60,7 @@ export default function TemplateWizard() {
       currency: defaultCurrency,
       hasImages: true,
       customerId: null,
+      thumbnailUrl: null,
     },
   });
   const { handleSubmit, formState, setValue, getValues } = methods;
@@ -245,7 +246,13 @@ export default function TemplateWizard() {
           />
         )}
 
-        {step === 4 && <StepExport getFullHtml={getFullHtml} />}
+        {step === 4 && (
+          <StepExport
+            getFullHtml={getFullHtml}
+            thumbnailUrl={methods.getValues("thumbnailUrl") ?? null}
+            filenameBase={methods.getValues("slug") || "template"}
+          />
+        )}
       </FormProvider>
     </div>
   );

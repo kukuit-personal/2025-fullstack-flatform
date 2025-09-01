@@ -13,6 +13,11 @@ export const NewTemplateForm = z.object({
   currency: z.nativeEnum(CurrencyEnum),
   hasImages: z.boolean(),
   customerId: z.string().nullable().optional(),
+  thumbnailUrl: z
+    .string()
+    .url("Thumbnail must be a valid URL")
+    .optional()
+    .nullable(),
 });
 export type NewTemplateFormValues = z.infer<typeof NewTemplateForm>;
 
