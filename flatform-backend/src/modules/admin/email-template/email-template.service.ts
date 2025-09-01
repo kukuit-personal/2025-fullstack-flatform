@@ -139,6 +139,39 @@ async function moveDraftImagesAndRewriteUrls(
   return urlMap;
 }
 
+/**
+ * Move/copy thumbnail từ tmp/<draftId>/thumbnail(.jpg|x600.jpg)
+ * sang templates/<templateId>/ và trả URL final để lưu DB.
+ */
+async function moveDraftThumbnails(
+  draftId: string,
+  templateId: string,
+): Promise<{ url200?: string; url600?: string }> {
+  const srcDir = path.join(process.cwd(), STORAGE_DIR, 'tmp', draftId);
+  const dstDir = path.join(process.cwd(), STORAGE_DIR, 'templates', templateId);
+  await ensureDir(dstDir);
+
+  const src200 = path.join(srcDir, 'thumbnail.jpg');
+  const src600 = path.join(srcDir, 'thumbnailx600.jpg');
+
+  // Đích
+  const dst200 = path.join(dstDir, 'thumbnail.jpg');
+  const dst600 = path.join(dstDir, 'thumbnailx600.jpg');
+
+  const out: { url200?: string; url600?: string } = {};
+
+  if (await pathExists(src200)) {
+    await safeRenameOrCopy(src200, dst200);
+    out.url200 = `${PUBLIC_BASE}/assets/templates/${templateId}/thumbnail.jpg`;
+  }
+  if (await pathExists(src600)) {
+    await safeRenameOrCopy(src600, dst600);
+    out.url600 = `${PUBLIC_BASE}/assets/templates/${templateId}/thumbnailx600.jpg`;
+  }
+
+  return out;
+}
+
 type Actor = { id: string; role?: string };
 
 @Injectable()
@@ -295,6 +328,25 @@ export class EmailTemplateService {
             })),
             skipDuplicates: true,
           });
+        }
+
+        // 5) Finalize thumbnails nếu có draftId
+        if (dto.draftId) {
+          const { url200, url600 } = await moveDraftThumbnails(
+            dto.draftId,
+            tmpl.id,
+          );
+
+          if (url200 || url600) {
+            await tx.emailTemplate.update({
+              where: { id: tmpl.id },
+              data: {
+                // prisma camelCase; DB map -> url_thumbnail, url_thumbnailx600
+                urlThumbnail: url200 ?? null,
+                urlThumbnailX600: url600 ?? null,
+              },
+            });
+          }
         }
 
         return tmpl;

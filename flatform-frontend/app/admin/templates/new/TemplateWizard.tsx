@@ -230,10 +230,10 @@ export default function TemplateWizard() {
 
         {step === 2 && (
           <StepThumbnail
+            draftId={draftIdRef.current}
+            getFullHtml={getFullHtml}
+            apiBase={process.env.NEXT_PUBLIC_API_BASE_URL ?? null}
             onSkip={next}
-            onGenerate={() => {
-              /* TODO */
-            }}
           />
         )}
 

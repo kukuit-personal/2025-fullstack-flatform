@@ -401,6 +401,8 @@ model EmailTemplate {
   hasImages   Boolean  @default(false) // true nếu có ảnh đính kèm
   price       Decimal? @db.Decimal(10, 2) // Có hoặc không
   currency    String?  @default("USD")
+  urlThumbnail     String? @map("url_thumbnail")      @db.VarChar(512)
+  urlThumbnailX600 String? @map("url_thumbnailx600")  @db.VarChar(512)
 
   // Liên kết User tạo template
   userId  String
