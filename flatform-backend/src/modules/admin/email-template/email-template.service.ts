@@ -12,8 +12,8 @@ import { SearchEmailTemplatesDto } from './dto/search-email-templates.dto';
 import { ulid } from 'ulid';
 import { Prisma } from '@prisma/client';
 import * as path from 'path';
-import * as fs from 'fs';
 import * as fsp from 'fs/promises';
+import slugify from 'slugify';
 
 const STATUS_DISABLED = 0;
 const STATUS_ACTIVE = 1;
@@ -199,6 +199,7 @@ export class EmailTemplateService {
     };
   }
 
+  // Kiểm tra quyền chỉnh sửa (chủ sở hữu hoặc admin)
   private ensureCanEditTemplate(actor: Actor, tmpl: any) {
     if (this.isAdmin(actor)) return; // admin luôn được quyền
     const isOwner = tmpl.userId === actor.id;
@@ -218,6 +219,7 @@ export class EmailTemplateService {
     }
   }
 
+  // Kiểm tra quyền xem template
   private ensureCanViewTemplate(actor: Actor, tmpl: any) {
     if (this.isAdmin(actor)) return; // admin luôn được quyền
     const isOwner = tmpl.userId === actor.id;
@@ -230,6 +232,7 @@ export class EmailTemplateService {
     }
   }
 
+  // Xử lý lỗi Prisma chung
   private handlePrismaError(e: unknown): never {
     if (e instanceof Prisma.PrismaClientKnownRequestError) {
       // P2002: unique constraint failed (ví dụ slug)
@@ -252,9 +255,39 @@ export class EmailTemplateService {
     throw e;
   }
 
-  // =========================
-  // Create (UPDATED: tmp/<draftId> → templates/<templateId>)
-  // =========================
+  // Chuẩn hoá slug (loại bỏ ký tự lạ, viết thường, không dấu)
+  private normalizeSlug(input?: string | null) {
+    const s = (input ?? '').trim();
+    if (!s) return '';
+    return slugify(s, { lower: true, strict: true, locale: 'vi' });
+  }
+
+  /**
+   * Tạo slug duy nhất trong transaction `tx`.
+   * - Nếu `base` trống -> trả về chuỗi rỗng (để caller fallback tiếp)
+   * - Nếu `base` đã tồn tại -> thêm -1, -2, ... (nhỏ nhất có thể)
+   */
+  private async computeUniqueSlug(
+    tx: Prisma.TransactionClient,
+    base: string,
+  ): Promise<string> {
+    if (!base) return '';
+
+    // Lấy tất cả slug bắt đầu bằng base
+    const existed = await tx.emailTemplate.findMany({
+      where: { slug: { startsWith: base } },
+      select: { slug: true },
+    });
+    const used = new Set(existed.map((x) => x.slug));
+
+    if (!used.has(base)) return base;
+
+    // Tìm số nhỏ nhất chưa dùng
+    let i = 1;
+    while (used.has(`${base}-${i}`)) i++;
+    return `${base}-${i}`;
+  }
+
   async create(actor: Actor, dto: CreateEmailTemplateDto) {
     try {
       if (dto.images?.length) {
@@ -270,24 +303,60 @@ export class EmailTemplateService {
       }
 
       return await this.prisma.$transaction(async (tx) => {
-        // 1) Tạo template (tạm lưu html gốc)
-        const tmpl = await tx.emailTemplate.create({
-          data: {
-            id: ulid(),
-            userId: actor.id,
-            statusId: STATUS_ACTIVE,
-            name: dto.name,
-            slug: dto.slug ?? null,
-            description: dto.description ?? '',
-            html: dto.html, // ⬅ html gốc
-            hasImages: dto.hasImages ?? Boolean(dto.images?.length),
-            price: dto.price ?? 0,
-            currency: dto.currency ?? 'USD',
-            customerId: dto.customerId ?? null,
-          },
-        });
+        // ===== 0) Chuẩn hoá + sinh slug duy nhất =====
+        // Ưu tiên slug từ dto; nếu trống dùng name; nếu vẫn trống -> dùng ulid()
+        const baseSlugRaw =
+          dto.slug?.trim() || dto.name?.trim() || ulid().toLowerCase();
+        const baseSlug = this.normalizeSlug(baseSlugRaw);
+        const uniqueSlug = await this.computeUniqueSlug(tx, baseSlug);
 
-        // 2) Move ảnh từ tmp → templates và lấy urlMap
+        // ===== 1) Tạo template (tạm lưu html gốc) =====
+        // Dùng vòng lặp nhỏ để chống race condition P2002 (hiếm)
+        let tmpl: any;
+        let attempt = 0;
+        let slugToUse = uniqueSlug || ulid().toLowerCase(); // đảm bảo luôn có slug
+        // tối đa 10 lần là quá đủ trong thực tế
+        while (attempt < 10) {
+          try {
+            tmpl = await tx.emailTemplate.create({
+              data: {
+                id: ulid(),
+                userId: actor.id,
+                statusId: STATUS_ACTIVE,
+                name: dto.name,
+                slug: slugToUse,
+                description: dto.description ?? '',
+                html: dto.html, // html gốc
+                hasImages: dto.hasImages ?? Boolean(dto.images?.length),
+                price: dto.price ?? 0,
+                currency: dto.currency ?? 'USD',
+                customerId: dto.customerId ?? null,
+              },
+            });
+            break; // thành công -> thoát loop
+          } catch (e: any) {
+            // Nếu dính unique constraint P2002 trên slug -> tăng hậu tố và thử lại
+            if (
+              e?.code === 'P2002' &&
+              Array.isArray(e?.meta?.target) &&
+              e.meta.target.includes('slug')
+            ) {
+              attempt++;
+              // Tăng hậu tố: nếu đã có -n, tăng n; nếu chưa có, bắt đầu từ -1
+              const m = slugToUse.match(/^(.*?)-(\d+)$/);
+              if (m) {
+                const n = parseInt(m[2], 10) + 1;
+                slugToUse = `${m[1]}-${n}`;
+              } else {
+                slugToUse = `${slugToUse}-1`;
+              }
+              continue;
+            }
+            throw e; // lỗi khác -> ném ra ngoài
+          }
+        }
+
+        // ===== 2) Move ảnh từ tmp → templates và lấy urlMap =====
         const images = Array.isArray(dto.images) ? [...dto.images] : [];
         let urlMap = new Map<string, string>();
         if (dto.draftId && images.length) {
@@ -298,7 +367,7 @@ export class EmailTemplateService {
           );
         }
 
-        // 3) Nếu có map, rewrite lại HTML và update trong cùng transaction
+        // ===== 3) Rewrite HTML nếu có urlMap =====
         if (urlMap.size > 0) {
           let finalHtml = dto.html;
           for (const [oldUrl, newUrl] of urlMap.entries()) {
@@ -313,7 +382,7 @@ export class EmailTemplateService {
           });
         }
 
-        // 4) Lưu metadata ảnh
+        // ===== 4) Lưu metadata ảnh =====
         if (images.length) {
           await tx.emailTpImage.createMany({
             data: images.map((img) => ({
@@ -330,18 +399,16 @@ export class EmailTemplateService {
           });
         }
 
-        // 5) Finalize thumbnails nếu có draftId
+        // ===== 5) Finalize thumbnails =====
         if (dto.draftId) {
           const { url200, url600 } = await moveDraftThumbnails(
             dto.draftId,
             tmpl.id,
           );
-
           if (url200 || url600) {
             await tx.emailTemplate.update({
               where: { id: tmpl.id },
               data: {
-                // prisma camelCase; DB map -> url_thumbnail, url_thumbnailx600
                 urlThumbnail: url200 ?? null,
                 urlThumbnailX600: url600 ?? null,
               },

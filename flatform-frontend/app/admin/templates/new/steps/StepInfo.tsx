@@ -1,5 +1,8 @@
 "use client";
+
+import { useEffect } from "react";
 import { useFormContext } from "react-hook-form";
+import slugify from "slugify";
 import { CurrencyEnum, CURRENCY_OPTIONS } from "../constants";
 
 export default function StepInfo({
@@ -10,7 +13,22 @@ export default function StepInfo({
   const {
     register,
     formState: { errors },
+    watch,
+    setValue,
   } = useFormContext();
+
+  // Watch các field liên quan
+  const nameValue = watch("name");
+
+  // Auto-update slug liên tục theo name (options cố định)
+  useEffect(() => {
+    const gen = slugify(nameValue || "", {
+      lower: true, // luôn về chữ thường
+      strict: true, // loại ký tự đặc biệt
+      locale: "vi", // hỗ trợ tiếng Việt
+    });
+    setValue("slug", gen, { shouldValidate: true, shouldDirty: true });
+  }, [nameValue, setValue]);
 
   const Label = ({
     children,
@@ -38,6 +56,7 @@ export default function StepInfo({
         <input
           {...register("name", { required: "Name is required" })}
           className="w-full rounded-lg border px-3 py-2"
+          placeholder="Promo Summer 2039"
         />
         {errors.name && (
           <p className="mt-1 text-xs text-red-600">
@@ -47,11 +66,11 @@ export default function StepInfo({
       </div>
 
       <div>
-        {/* 🆕 thêm (*) cho Slug và rule required */}
         <Label required>Slug</Label>
         <input
           {...register("slug", { required: "Slug is required" })}
           className="w-full rounded-lg border px-3 py-2"
+          placeholder="promo-summer-2039"
         />
         {errors.slug && (
           <p className="mt-1 text-xs text-red-600">
@@ -66,6 +85,7 @@ export default function StepInfo({
           {...register("description")}
           rows={3}
           className="w-full rounded-lg border px-3 py-2"
+          placeholder="Landing promo email for summer campaign"
         />
       </div>
 
@@ -79,6 +99,9 @@ export default function StepInfo({
               required: "Price is required",
             })}
             className="w-full rounded-lg border px-3 py-2"
+            placeholder="5"
+            min={0}
+            step={0.01}
           />
           {errors.price && (
             <p className="mt-1 text-xs text-red-600">
@@ -116,6 +139,7 @@ export default function StepInfo({
             setValueAs: (v) => (v === "" ? null : v),
           })}
           className="w-full rounded-lg border px-3 py-2"
+          placeholder="(optional) customer id"
         />
       </div>
 

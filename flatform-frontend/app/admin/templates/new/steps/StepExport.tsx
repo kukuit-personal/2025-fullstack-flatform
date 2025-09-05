@@ -210,7 +210,7 @@ export default function StepExport({
           type="button"
           className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
         >
-          1) Export HTML (img online)
+          1. HTML (.html) - <i>Single file</i>
         </button>
 
         {/* 2 */}
@@ -221,7 +221,7 @@ export default function StepExport({
           disabled={!hasThumb}
           title={!hasThumb ? "Chưa có thumbnailUrl" : ""}
         >
-          2) Export HTML - With thumbnail (ZIP)
+          2. ZIP: HTML + thumbnail.jpg - <i>Adds preview image</i>
         </button>
 
         {/* 3 */}
@@ -230,7 +230,7 @@ export default function StepExport({
           type="button"
           className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
         >
-          3) Export Zip - Without thumbnail
+          3. ZIP: HTML + /images - <i>Embeds local images</i>
         </button>
 
         {/* 4 */}
@@ -241,7 +241,7 @@ export default function StepExport({
           disabled={!hasThumb}
           title={!hasThumb ? "Chưa có thumbnailUrl" : ""}
         >
-          4) Export Zip - With thumbnail
+          4. ZIP: HTML + /images + thumbnail.jpg - <i>Full package</i>
         </button>
       </div>
     </div>
