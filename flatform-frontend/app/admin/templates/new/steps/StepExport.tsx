@@ -208,7 +208,7 @@ export default function StepExport({
         <button
           onClick={exportHtmlOnline}
           type="button"
-          className="rounded-lg bg-black px-4 py-2 text-sm text-white hover:bg-gray-900"
+          className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
         >
           1) Export HTML (img online)
         </button>
@@ -221,7 +221,7 @@ export default function StepExport({
           disabled={!hasThumb}
           title={!hasThumb ? "Chưa có thumbnailUrl" : ""}
         >
-          2) Export HTML – With thumbnail (ZIP)
+          2) Export HTML - With thumbnail (ZIP)
         </button>
 
         {/* 3 */}
@@ -230,7 +230,7 @@ export default function StepExport({
           type="button"
           className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
         >
-          3) Export Zip – Without thumbnail
+          3) Export Zip - Without thumbnail
         </button>
 
         {/* 4 */}
@@ -241,14 +241,9 @@ export default function StepExport({
           disabled={!hasThumb}
           title={!hasThumb ? "Chưa có thumbnailUrl" : ""}
         >
-          4) Export Zip – With thumbnail
+          4) Export Zip - With thumbnail
         </button>
       </div>
-
-      <p className="mt-3 text-xs text-gray-500">
-        Gợi ý: Lưu <code>thumbnailUrl</code> (vd từ bước Thumbnail) vào form rồi
-        truyền xuống đây.
-      </p>
     </div>
   );
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useFormContext } from "react-hook-form"; // 🔹 NEW
 
 export default function StepThumbnail({
   draftId,
@@ -13,6 +14,7 @@ export default function StepThumbnail({
   onSkip: () => void;
   apiBase?: string | null;
 }) {
+  const { setValue } = useFormContext(); // 🔹 NEW: lấy setter từ RHF
   const [urls, setUrls] = useState<{ url200?: string; url600?: string }>({});
   const [loading, setLoading] = useState(false);
 
@@ -35,10 +37,14 @@ export default function StepThumbnail({
         throw new Error(msg || "Generate thumbnails failed");
       }
       const json = await res.json();
-      setUrls({
-        url200: json.url_thumbnail,
-        url600: json.url_thumbnailx600,
-      });
+      const url200 = json.url_thumbnail as string | undefined;
+      const url600 = json.url_thumbnailx600 as string | undefined;
+
+      setUrls({ url200, url600 });
+
+      // 🔹 GHI VÀO FORM: ưu tiên 600px, fallback 200px
+      const chosen = url600 || url200 || null;
+      setValue("thumbnailUrl", chosen, { shouldDirty: true }); // để StepExport enable
     } catch (e: any) {
       console.error("[thumbnail] preview error:", e);
       alert(e?.message || "Generate thumbnails failed");

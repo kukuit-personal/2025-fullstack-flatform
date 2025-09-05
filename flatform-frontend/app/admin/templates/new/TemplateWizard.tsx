@@ -249,7 +249,7 @@ export default function TemplateWizard() {
         {step === 4 && (
           <StepExport
             getFullHtml={getFullHtml}
-            thumbnailUrl={methods.getValues("thumbnailUrl") ?? null}
+            thumbnailUrl={methods.watch("thumbnailUrl") ?? null}
             filenameBase={methods.getValues("slug") || "template"}
           />
         )}
