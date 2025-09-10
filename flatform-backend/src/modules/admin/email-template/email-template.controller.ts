@@ -13,6 +13,7 @@ import {
   UseGuards,
   DefaultValuePipe,
   ParseIntPipe,
+  Patch,
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
@@ -120,7 +121,7 @@ export class EmailTemplateAdminController {
   // Update
   // --------------------------
   @Roles('admin')
-  @Put(':id')
+  @Patch(':id')
   @ApiOperation({ summary: 'Update email template (admin)' })
   @ApiResponse({
     status: HttpStatus.OK,

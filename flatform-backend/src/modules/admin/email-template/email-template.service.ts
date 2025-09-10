@@ -14,6 +14,7 @@ import { Prisma } from '@prisma/client';
 import * as path from 'path';
 import * as fsp from 'fs/promises';
 import slugify from 'slugify';
+import * as cheerio from 'cheerio'; // 🆕 dùng để rewrite <img src>
 
 const STATUS_DISABLED = 0;
 const STATUS_ACTIVE = 1;
@@ -172,6 +173,47 @@ async function moveDraftThumbnails(
   return out;
 }
 
+// 🆕 Cheerio-based rewrite: ưu tiên urlMap (old→new), fallback theo prefix tmp → templates
+function rewriteHtmlImgSrcWithCheerio(html: string, params: {
+  draftId?: string | null;
+  templateId: string;
+  urlMap?: Map<string, string>;
+}) {
+  const { draftId, templateId, urlMap } = params;
+  const $ = cheerio.load(html);
+
+  const fromPrefixes = draftId
+    ? [
+        `${PUBLIC_BASE}/assets/tmp/${draftId}/images/`,
+        // nếu sau này có thêm biến thể, có thể bổ sung vào đây
+      ]
+    : [];
+  const toPrefix = `${PUBLIC_BASE}/assets/templates/${templateId}/images/`;
+
+  $('img[src]').each((_, el) => {
+    const oldSrc = $(el).attr('src') || '';
+    if (!oldSrc) return;
+
+    // 1) mapping cụ thể từ urlMap
+    if (urlMap && urlMap.has(oldSrc)) {
+      $(el).attr('src', urlMap.get(oldSrc)!);
+      return;
+    }
+
+    // 2) fallback theo prefix tmp → templates (giữ tail filename)
+    const matched = fromPrefixes.find((p) => oldSrc.startsWith(p));
+    if (matched) {
+      const tail = oldSrc.slice(matched.length);
+      $(el).attr('src', `${toPrefix}${tail}`);
+    }
+  });
+
+  // giữ nguyên doctype nếu đã có
+  const hasDoctype = /^<!doctype/i.test(html.trim());
+  const out = $.root().html() || '';
+  return hasDoctype ? out : '<!doctype html>\n' + out;
+}
+
 type Actor = { id: string; role?: string };
 
 @Injectable()
@@ -326,7 +368,7 @@ export class EmailTemplateService {
                 name: dto.name,
                 slug: slugToUse,
                 description: dto.description ?? '',
-                html: dto.html, // html gốc
+                html: dto.html, // html gốc (sẽ rewrite ngay sau)
                 hasImages: dto.hasImages ?? Boolean(dto.images?.length),
                 price: dto.price ?? 0,
                 currency: dto.currency ?? 'USD',
@@ -359,23 +401,21 @@ export class EmailTemplateService {
         // ===== 2) Move ảnh từ tmp → templates và lấy urlMap =====
         const images = Array.isArray(dto.images) ? [...dto.images] : [];
         let urlMap = new Map<string, string>();
-        if (dto.draftId && images.length) {
-          urlMap = await moveDraftImagesAndRewriteUrls(
-            dto.draftId,
-            tmpl.id,
-            images,
-          );
+        if (dto.draftId) {
+          // ngay cả khi images rỗng, vẫn cần move folder để fallback rewrite theo prefix
+          urlMap = images.length
+            ? await moveDraftImagesAndRewriteUrls(dto.draftId, tmpl.id, images)
+            : new Map<string, string>();
         }
 
-        // ===== 3) Rewrite HTML nếu có urlMap =====
-        if (urlMap.size > 0) {
-          let finalHtml = dto.html;
-          for (const [oldUrl, newUrl] of urlMap.entries()) {
-            finalHtml = finalHtml.replace(
-              new RegExp(escapeRegExp(oldUrl), 'g'),
-              newUrl,
-            );
-          }
+        // ===== 3) Rewrite HTML bằng Cheerio (ưu tiên urlMap, fallback theo prefix tmp → templates) =====
+        let finalHtml = dto.html;
+        if (dto.draftId) {
+          finalHtml = rewriteHtmlImgSrcWithCheerio(dto.html, {
+            draftId: dto.draftId,
+            templateId: tmpl.id,
+            urlMap,
+          });
           await tx.emailTemplate.update({
             where: { id: tmpl.id },
             data: { html: finalHtml },
@@ -388,7 +428,7 @@ export class EmailTemplateService {
             data: images.map((img) => ({
               id: ulid(),
               templateId: tmpl.id,
-              url: img.url,
+              url: img.url, // đã bị moveDraftImagesAndRewriteUrls mutate sang URL đích
               filename: img.filename ?? (img.url.split('/').pop() || null),
               mimeType: (img as any).mimeType ?? null,
               width: (img as any).width ?? null,
@@ -415,7 +455,7 @@ export class EmailTemplateService {
             });
           }
         }
-
+        tmpl.html = finalHtml; 
         return tmpl;
       });
     } catch (e) {
@@ -498,17 +538,78 @@ export class EmailTemplateService {
   // =========================
   async update(actor: Actor, id: string, dto: UpdateEmailTemplateDto) {
     const tmpl = await this.prisma.emailTemplate.findUnique({
-      where: { id },
-      include: { shares: true },
+      where: { id }, include: { shares: true },
     });
     if (!tmpl) throw new NotFoundException('Template not found');
-
     this.ensureCanEditTemplate(actor, tmpl);
 
+    // Build data cơ bản
+    let data: Prisma.EmailTemplateUpdateInput = { ...dto };
+
+    // Fallback: nếu html còn /assets/tmp/... -> rewrite về templates/:id
+    if (dto.html && dto.html.includes('/assets/tmp/')) {
+      const $ = cheerio.load(dto.html);
+      const toPrefix = `${PUBLIC_BASE}/assets/templates/${id}/images/`;
+      $('img[src]').each((_, el) => {
+        const src = $(el).attr('src') || '';
+        const m = src.match(/\/assets\/tmp\/[^/]+\/images\/(.+)$/);
+        if (m) $(el).attr('src', toPrefix + m[1]);
+      });
+      const hasDoctype = /^<!doctype/i.test(dto.html.trim());
+      const out = $.root().html() || '';
+      data.html = hasDoctype ? out : '<!doctype html>\n' + out;
+    }
+
     try {
-      return await this.prisma.emailTemplate.update({
-        where: { id },
-        data: { ...dto },
+      // 1) Không gửi slug -> cập nhật bình thường
+      if (!dto.slug) {
+        return await this.prisma.emailTemplate.update({ where: { id }, data });
+      }
+
+      // 2) Có gửi slug nhưng không đổi so với hiện tại -> giữ nguyên, không tính lại
+      const baseNorm = this.normalizeSlug(dto.slug);
+      if (baseNorm === tmpl.slug) {
+        return await this.prisma.emailTemplate.update({
+          where: { id },
+          data: { ...data, slug: tmpl.slug }, // giữ như cũ
+        });
+      }
+
+      // 3) Có gửi slug & KHÁC hiện tại -> tính slug duy nhất bằng computeUniqueSlug + retry P2002
+      return await this.prisma.$transaction(async (tx) => {
+        // dùng lại helper cũ
+        const unique = await this.computeUniqueSlug(tx, baseNorm);
+        let slugToUse = unique || ulid().toLowerCase();
+
+        let attempt = 0;
+        while (attempt < 10) {
+          try {
+            return await tx.emailTemplate.update({
+              where: { id },
+              data: { ...data, slug: slugToUse },
+            });
+          } catch (e: any) {
+            if (
+              e?.code === 'P2002' &&
+              Array.isArray(e?.meta?.target) &&
+              e.meta.target.includes('slug')
+            ) {
+              attempt++;
+              const m = slugToUse.match(/^(.*?)-(\d+)$/);
+              slugToUse = m
+                ? `${m[1]}-${parseInt(m[2], 10) + 1}`
+                : `${slugToUse}-1`;
+              continue;
+            }
+            throw e;
+          }
+        }
+
+        // fallback cực hiếm
+        return await tx.emailTemplate.update({
+          where: { id },
+          data: { ...data, slug: `${baseNorm}-${ulid().toLowerCase()}` },
+        });
       });
     } catch (e) {
       this.handlePrismaError(e);

@@ -29,16 +29,28 @@ export default function StepThumbnail({
   onSkip: () => void;
   apiBase?: string | null;
 }) {
-  const { setValue, getValues, watch } = useFormContext();
+  const { register, setValue, getValues, watch } = useFormContext();
+
+  // Đảm bảo các field được register để watch hoạt động ổn định
+  useEffect(() => {
+    register("thumbnailUrl");
+    register("thumbnailUrl200");
+    register("thumbnailUrl600");
+    register("thumbnailHtmlSig");
+  }, [register]);
 
   // ===== Persist với RHF =====
+  const urlMainForm = watch("thumbnailUrl") as string | undefined | null;
   const url200Form = watch("thumbnailUrl200") as string | undefined | null;
   const url600Form = watch("thumbnailUrl600") as string | undefined | null;
 
   // Local state chỉ để render tức thời; seed từ form (dùng URL có cache-buster)
-  const [urls, setUrls] = useState<{ url200?: string; url600?: string }>({
-    url200: url200Form ? bust(url200Form) : undefined,
-    url600: url600Form ? bust(url600Form) : undefined,
+  const [urls, setUrls] = useState<{ url200?: string; url600?: string }>(() => {
+    const ts = Date.now();
+    return {
+      url200: url200Form ? bust(url200Form, ts) : urlMainForm ? bust(urlMainForm, ts) : undefined,
+      url600: url600Form ? bust(url600Form, ts) : urlMainForm ? bust(urlMainForm, ts) : undefined,
+    };
   });
   const [loading, setLoading] = useState(false);
 
@@ -46,10 +58,10 @@ export default function StepThumbnail({
   useEffect(() => {
     const ts = Date.now();
     setUrls({
-      url200: url200Form ? bust(url200Form, ts) : undefined,
-      url600: url600Form ? bust(url600Form, ts) : undefined,
+      url200: url200Form ? bust(url200Form, ts) : urlMainForm ? bust(urlMainForm, ts) : undefined,
+      url600: url600Form ? bust(url600Form, ts) : urlMainForm ? bust(urlMainForm, ts) : undefined,
     });
-  }, [url200Form, url600Form]);
+  }, [url200Form, url600Form, urlMainForm]);
 
   // Nếu HTML đổi so với lần gen trước -> clear thumbnail
   useEffect(() => {
@@ -87,10 +99,11 @@ export default function StepThumbnail({
         throw new Error(msg || "Generate thumbnails failed");
       }
       const json = await res.json();
+      // ✅ GIỮ NGUYÊN ABSOLUTE URL TỪ BE/DB (vd: http://localhost:3001/...)
       const url200Raw = (json.url_thumbnail as string) || undefined;
       const url600Raw = (json.url_thumbnailx600 as string) || undefined;
 
-      // 🔸 Lưu vào form (KHÔNG bust) để dùng cho Export/Save
+      // Lưu vào form (KHÔNG bust) để dùng cho Export/Save
       setValue("thumbnailUrl200", url200Raw ?? null, { shouldDirty: true });
       setValue("thumbnailUrl600", url600Raw ?? null, { shouldDirty: true });
 
@@ -98,7 +111,7 @@ export default function StepThumbnail({
       const chosen = url600Raw || url200Raw || null;
       setValue("thumbnailUrl", chosen, { shouldDirty: true });
 
-      // 🔸 UI hiển thị dùng URL có bust để tránh cache
+      // UI hiển thị dùng URL có bust để tránh cache
       const ts = Date.now();
       setUrls({
         url200: url200Raw ? bust(url200Raw, ts) : undefined,
