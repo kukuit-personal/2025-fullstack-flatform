@@ -9,7 +9,7 @@ const loadNewsletterPreset = () => import("grapesjs-preset-newsletter");
 
 const DEFAULT_HTML = `
   <!-- Pre-header (hidden) -->
-  <table role="presentation" width="650" border="0" cellpadding="0" cellspacing="0" style="border-collapse:collapse;border-spacing:0">
+  <table role="presentation" width="650" border="0" cellpadding="0" cellspacing="0" style="border-collapse:collapse;border-spacing:0;">
     <tbody>
       <tr>
         <td width="650" align="center" bgcolor="#ffffff">
@@ -21,30 +21,18 @@ const DEFAULT_HTML = `
     </tbody>
   </table>
   <!-- End Pre-header -->
-  <table role="presentation" width="650" height="500" align="center" bgcolor="#f4f4f4" border="0" cellpadding="0" cellspacing="0">
+
+  <!-- Main --> 
+  <table role="presentation" width="650" align="center" bgcolor="#f4f4f4" border="0" cellpadding="0" cellspacing="0" style="min-height:500px;">
     <tbody>
       <tr>
-        <td align="center">
-          
-        </td>
-      </tr>
-      <tr>
-        <td>
-          <table role="presentation" width="650" cellpadding="0" cellspacing="0" border="0" style="background:#ffffff;">
-          <tbody>
-            <tr>
-              <td>
-                <!-- Drag & drop newsletter blocks here -->
-              </td>
-            </tr>
-          </tbody>
-        </table>
+        <td valign="top">
+          <!-- Drag & drop newsletter blocks here -->
         </td>
       </tr>
     </tbody>
   </table>
 `;
-
 export default function StepEditor({
   editorRef,
   uploadedRef,
@@ -92,7 +80,7 @@ export default function StepEditor({
 
       const editor = grapesjs.init({
         container: containerRef.current,
-        height: "calc(100vh - 320px)",
+        height: "calc(100vh - 50px)",
         fromElement: false,
         storageManager: false,
         plugins: [presetNewsletter],
@@ -400,7 +388,7 @@ export default function StepEditor({
             <input
               value={preHeader}
               onChange={onChangePreHeader}
-              placeholder="Nhập pre-header (40–140 ký tự)"
+              placeholder="Nhập pre-header (40-140 ký tự)"
               className="flex-1 rounded-md border px-3 py-1.5 text-sm"
               maxLength={180}
             />
