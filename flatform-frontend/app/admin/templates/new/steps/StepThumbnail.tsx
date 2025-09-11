@@ -48,8 +48,16 @@ export default function StepThumbnail({
   const [urls, setUrls] = useState<{ url200?: string; url600?: string }>(() => {
     const ts = Date.now();
     return {
-      url200: url200Form ? bust(url200Form, ts) : urlMainForm ? bust(urlMainForm, ts) : undefined,
-      url600: url600Form ? bust(url600Form, ts) : urlMainForm ? bust(urlMainForm, ts) : undefined,
+      url200: url200Form
+        ? bust(url200Form, ts)
+        : urlMainForm
+        ? bust(urlMainForm, ts)
+        : undefined,
+      url600: url600Form
+        ? bust(url600Form, ts)
+        : urlMainForm
+        ? bust(urlMainForm, ts)
+        : undefined,
     };
   });
   const [loading, setLoading] = useState(false);
@@ -58,8 +66,16 @@ export default function StepThumbnail({
   useEffect(() => {
     const ts = Date.now();
     setUrls({
-      url200: url200Form ? bust(url200Form, ts) : urlMainForm ? bust(urlMainForm, ts) : undefined,
-      url600: url600Form ? bust(url600Form, ts) : urlMainForm ? bust(urlMainForm, ts) : undefined,
+      url200: url200Form
+        ? bust(url200Form, ts)
+        : urlMainForm
+        ? bust(urlMainForm, ts)
+        : undefined,
+      url600: url600Form
+        ? bust(url600Form, ts)
+        : urlMainForm
+        ? bust(urlMainForm, ts)
+        : undefined,
     });
   }, [url200Form, url600Form, urlMainForm]);
 
@@ -83,6 +99,9 @@ export default function StepThumbnail({
   const onGenerate = async () => {
     setLoading(true);
     try {
+      // HTML đã được ép ẩn pre-header từ TemplateWizard (getFullHtmlHidden)
+      const preparedHtml = getFullHtml();
+
       const res = await fetch(
         `${
           apiBase ?? process.env.NEXT_PUBLIC_API_BASE_URL
@@ -91,7 +110,7 @@ export default function StepThumbnail({
           method: "POST",
           headers: { "Content-Type": "application/json" },
           credentials: "include",
-          body: JSON.stringify({ html: getFullHtml(), draftId }),
+          body: JSON.stringify({ html: preparedHtml, draftId }),
         }
       );
       if (!res.ok) {
@@ -118,7 +137,7 @@ export default function StepThumbnail({
         url600: url600Raw ? bust(url600Raw, ts) : undefined,
       });
 
-      // Lưu chữ ký HTML tại thời điểm gen
+      // Lưu chữ ký HTML tại thời điểm gen (dùng HTML gốc đã hidden để so lần sau)
       const sig = hashString(getFullHtml() || "");
       setValue("thumbnailHtmlSig", sig, { shouldDirty: false });
     } catch (e: any) {

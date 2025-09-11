@@ -105,14 +105,14 @@ export default function StepExport({
 
   // ===== 1) Export HTML (img src online) =====
   const exportHtmlOnline = () => {
-    const html = getFullHtml();
+    const html = getFullHtml(); // đã ẩn pre-header từ Wizard
     if (!html || !html.trim()) return alert("HTML trống.");
     textDownload(html, "text/html", `${filenameBase}.html`);
   };
 
   // ===== 2) Export HTML - With thumbnail (zip: html online + thumbnail.jpg) =====
   const exportHtmlOnlineWithThumbnail = async () => {
-    const html = getFullHtml();
+    const html = getFullHtml(); // đã ẩn pre-header từ Wizard
     if (!html || !html.trim()) return alert("HTML trống.");
     if (!thumbnailUrl)
       return alert("Chưa có thumbnail. Hãy tạo/nhập thumbnail trước.");
@@ -134,7 +134,7 @@ export default function StepExport({
 
   // ===== 3) Export Zip - Without thumbnail (zip: html + /images) =====
   const exportZipNoThumb = async () => {
-    const html = getFullHtml();
+    const html = getFullHtml(); // đã ẩn pre-header từ Wizard
     if (!html || !html.trim()) return alert("HTML trống.");
 
     // Viết lại src -> /images/*
@@ -162,7 +162,7 @@ export default function StepExport({
 
   // ===== 4) Export Zip - With thumbnail (zip: html + /images + thumbnail.jpg) =====
   const exportZipWithThumb = async () => {
-    const html = getFullHtml();
+    const html = getFullHtml(); // đã ẩn pre-header từ Wizard
     if (!html || !html.trim()) return alert("HTML trống.");
     if (!thumbnailUrl)
       return alert("Chưa có thumbnail. Hãy tạo/nhập thumbnail trước.");

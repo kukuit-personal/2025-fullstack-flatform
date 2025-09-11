@@ -51,6 +51,29 @@ const TAB_TO_STEP = {
 } as const;
 type TabKey = keyof typeof TAB_TO_STEP;
 
+/** 🔒 Ẩn chắc chắn p#pre-header (idempotent) */
+function ensureHiddenPreheader(html: string): string {
+  try {
+    const hasHtmlTag = /<\s*html[\s>]/i.test(html);
+    const shell = hasHtmlTag ? html : `<!doctype html><html><body>${html}</body></html>`;
+    const doc = new DOMParser().parseFromString(shell, "text/html");
+    const p = doc.getElementById("pre-header") as HTMLElement | null;
+    if (p) {
+      const H =
+        "display:none !important;visibility:hidden !important;opacity:0 !important;color:transparent !important;max-height:0 !important;max-width:0 !important;overflow:hidden !important;mso-hide:all !important;font-size:1px !important;line-height:1px !important;";
+      p.setAttribute("style", `${p.getAttribute("style") || ""};${H}`);
+      p.setAttribute("aria-hidden", "true");
+      // Gia cố cho <td> cha (đặc biệt Outlook)
+      const td = p.closest("td") as HTMLElement | null;
+      if (td) td.setAttribute("style", `${td.getAttribute("style") || ""};mso-hide:all !important;`);
+    }
+    // Trả lại đúng “dạng” như input
+    return hasHtmlTag ? doc.documentElement.outerHTML : doc.body.innerHTML;
+  } catch {
+    return html;
+  }
+}
+
 export default function TemplateWizard({
   // có templateId => edit mode
   templateId = null,
@@ -120,14 +143,25 @@ export default function TemplateWizard({
   const getFullHtml = useCallback(() => {
     const ed = editorRef.current;
     if (!ed) return "";
+
+    // BỎ lấy CSS global: const css = ed.getCss();
+    // Chỉ lấy phần HTML (GrapesJS newsletter blocks đã inline sẵn)
     const htmlBody = ed.getHtml({ cleanId: true });
-    const css = ed.getCss();
-    return `<!doctype html><html><head>
-      <meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-      <title>${getValues("name") || "Template"}</title>
-      <style>${css}</style>
-    </head><body>${htmlBody}</body></html>`;
+    return `<!doctype html>
+      <html>
+        <head>
+          <meta charset="utf-8"/>
+          <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+          <title>${getValues("name") || "Template"}</title>
+        </head>
+        ${htmlBody}
+      </html>`;
   }, [getValues]);
+
+  /** 🧩 Bản getFullHtml đã chuẩn hoá để luôn ẩn pre-header cho Thumbnail/Review/Export */
+  const getFullHtmlHidden = useCallback(() => {
+    return ensureHiddenPreheader(getFullHtml());
+  }, [getFullHtml]);
 
   const extractImageMetas = useCallback(() => {
     const html = getFullHtml();
@@ -242,7 +276,7 @@ export default function TemplateWizard({
     () =>
       handleSubmit(
         async (values) => {
-          const html = getFullHtml();
+          const html = getFullHtmlHidden();
           if (!html || html.trim() === "") {
             setStep(0);
             toast.error(
@@ -272,7 +306,7 @@ export default function TemplateWizard({
     () =>
       handleSubmit(
         async (values) => {
-          const html = getFullHtml();
+          const html = getFullHtmlHidden();
           if (!html.trim()) {
             setStep(0);
             toast.error("Editor chưa có nội dung.");
@@ -387,7 +421,8 @@ export default function TemplateWizard({
         {step === 2 && (
           <StepThumbnail
             draftId={draftIdRef.current}
-            getFullHtml={getFullHtml}
+            // ⬇️ dùng HTML đã ép ẩn pre-header
+            getFullHtml={getFullHtmlHidden}
             apiBase={process.env.NEXT_PUBLIC_API_BASE_URL ?? null}
             onSkip={next}
           />
@@ -396,7 +431,8 @@ export default function TemplateWizard({
         {step === 3 && (
           <StepReviewSave
             key={editorRefreshKey} // ⬅️ remount để lấy lại HTML mới
-            getFullHtml={getFullHtml}
+            // ⬇️ dùng HTML đã ép ẩn pre-header
+            getFullHtml={getFullHtmlHidden}
             onSave={isEdit ? onUpdate : onCreate}
             isSaving={isCreating || isUpdating}
             saveLabel={isEdit ? "Update template" : "Create template"}
@@ -406,7 +442,8 @@ export default function TemplateWizard({
         {step === 4 && (
           <StepExport
             key={editorRefreshKey} // ⬅️ remount khi editor thay đổi
-            getFullHtml={getFullHtml}
+            // ⬇️ dùng HTML đã ép ẩn pre-header
+            getFullHtml={getFullHtmlHidden}
             thumbnailUrl={methods.watch("thumbnailUrl") ?? null}
             filenameBase={methods.getValues("slug") || "template"}
           />

@@ -19,7 +19,7 @@ export default function StepReviewSave({
   const { getValues } = useFormContext();
   const v = getValues();
 
-  // 🆕 thêm refreshKey để re-compute html khi editor thay đổi
+  // Lưu ý: getFullHtml đã là bản "hidden pre-header" được Wizard bọc sẵn.
   const html = useMemo(() => getFullHtml(), [getFullHtml, refreshKey]);
 
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 type UploadProvider = "cloudinary" | "my-storage";
 
@@ -8,30 +8,47 @@ const loadGrapes = () => import("grapesjs");
 const loadNewsletterPreset = () => import("grapesjs-preset-newsletter");
 
 const DEFAULT_HTML = `
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f5f7fb;">
-  <tbody>
-    <tr>
-      <td align="center" style="padding:24px;">
-        <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="background:#ffffff;">
+  <!-- Pre-header (hidden) -->
+  <table role="presentation" width="650" border="0" cellpadding="0" cellspacing="0" style="border-collapse:collapse;border-spacing:0">
+    <tbody>
+      <tr>
+        <td width="650" align="center" bgcolor="#ffffff">
+          <p id="pre-header"
+            style="margin:0;font-size:1px;line-height:1px;color:transparent;display:none;visibility:hidden;opacity:0;max-height:0;max-width:0;overflow:hidden;mso-hide:all;"
+            aria-hidden="true">&nbsp;</p>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+  <!-- End Pre-header -->
+  <table role="presentation" width="650" height="500" align="center" bgcolor="#f4f4f4" border="0" cellpadding="0" cellspacing="0">
+    <tbody>
+      <tr>
+        <td align="center">
+          
+        </td>
+      </tr>
+      <tr>
+        <td>
+          <table role="presentation" width="650" cellpadding="0" cellspacing="0" border="0" style="background:#ffffff;">
           <tbody>
             <tr>
-              <td style="padding:20px;">
+              <td>
                 <!-- Drag & drop newsletter blocks here -->
               </td>
             </tr>
           </tbody>
         </table>
-      </td>
-    </tr>
-  </tbody>
-</table>
+        </td>
+      </tr>
+    </tbody>
+  </table>
 `;
 
 export default function StepEditor({
   editorRef,
   uploadedRef,
   draftIdRef,
-  // 🆕 nhận từ wizard (ưu tiên dùng prop, fallback env)
   uploadProvider,
   apiBase,
   onReady,
@@ -44,6 +61,7 @@ export default function StepEditor({
   onReady?: () => void;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const [preHeader, setPreHeader] = useState("");
 
   useEffect(() => {
     let mounted = true;
@@ -83,19 +101,17 @@ export default function StepEditor({
         },
         components: DEFAULT_HTML,
         assetManager: {
-          upload: false, // custom upload handler
+          upload: false,
           uploadFile: async (e: any) => {
             const files: FileList =
               e?.dataTransfer?.files || e?.target?.files || [];
             for (const file of Array.from(files)) {
-              // 1) Giới hạn 5MB
               if (file.size > MAX_BYTES) {
                 alert(`"${file.name}" quá 5MB. Vui lòng chọn ảnh nhỏ hơn.`);
                 continue;
               }
 
               if (provider === "my-storage") {
-                // === Upload về backend my-storage (tmp/<draftId>) ===
                 if (!apiBaseUrl) {
                   alert("Thiếu NEXT_PUBLIC_API_BASE_URL cho my-storage");
                   continue;
@@ -110,7 +126,7 @@ export default function StepEditor({
                   const errText = await res.text();
                   throw new Error(`my-storage upload failed: ${errText}`);
                 }
-                const json = await res.json(); // { url, filename, mimeType, bytes, width?, height? }
+                const json = await res.json();
                 const fileUrl: string = json.url;
 
                 let meta: any = {
@@ -121,7 +137,6 @@ export default function StepEditor({
                   width: json.width,
                   height: json.height,
                 };
-                // nếu backend không đo w/h thì đo ở client
                 if (!meta.width || !meta.height) {
                   const img = new Image();
                   img.src = fileUrl;
@@ -137,11 +152,9 @@ export default function StepEditor({
                 });
                 uploadedRef.current.set(fileUrl, meta);
               } else {
-                // === Cloudinary unsigned ===
                 const form = new FormData();
                 form.append("file", file);
                 if (uploadPreset) form.append("upload_preset", uploadPreset);
-                // đưa ảnh theo draftId để dễ quản lý sau này
                 const folderFinal = baseFolder
                   ? `${baseFolder}/tmp/${draftIdRef.current}`
                   : `tmp/${draftIdRef.current}`;
@@ -155,7 +168,7 @@ export default function StepEditor({
                   const errText = await res.text();
                   throw new Error(`Cloudinary upload failed: ${errText}`);
                 }
-                const json = await res.json(); // { secure_url, bytes, width, height, ... }
+                const json = await res.json();
                 const cdnUrl: string = json.secure_url;
 
                 editor.AssetManager.add({
@@ -178,8 +191,114 @@ export default function StepEditor({
         },
       });
 
-      // Fallback đảm bảo có layout mặc định khi editor đã load
+      // ===== Helpers: DOM-based (giữ lại làm fallback) =====
+      const doc = () => editor.Canvas.getDocument() as Document;
+
+      const ensurePreHeader = (): HTMLElement | null => {
+        const exist = doc().getElementById("pre-header") as HTMLElement | null;
+        if (exist) return exist;
+        const block = `
+        <table role="presentation" class="container" width="650" border="0" cellpadding="0" cellspacing="0" style="border-collapse:collapse;border-spacing:0">
+          <tbody>
+            <tr>
+              <td width="650" align="center" bgcolor="#ffffff" style="display:none;visibility:hidden;opacity:0;color:transparent;max-height:0;max-width:0;overflow:hidden;mso-hide:all;">
+                <p id="pre-header"
+                    style="margin:0;font-size:1px;line-height:1px;color:transparent;display:none;visibility:hidden;opacity:0;max-height:0;max-width:0;overflow:hidden;mso-hide:all;"
+                    aria-hidden="true">&nbsp;</p>
+              </td>
+            </tr>
+          </tbody>
+        </table>`;
+        editor.addComponents(block, { at: 0 });
+        return doc().getElementById("pre-header") as HTMLElement | null;
+      };
+
+      const setPreHeaderText = (text: string) => {
+        const p = ensurePreHeader();
+        if (!p) return;
+        p.textContent = text && text.trim().length > 0 ? text : "\u00A0";
+      };
+
+      // ===== Helpers: MODEL-based (chính dùng) =====
+      const findComp = (selector: string) =>
+        (editor.getWrapper()?.find?.(selector) ?? [])[0] as any | undefined;
+
+      const ensurePreHeaderComp = (): any | undefined => {
+        let comp = findComp("#pre-header");
+        if (comp) return comp;
+
+        const block = `
+          <table role="presentation" class="container" width="650" border="0" cellpadding="0" cellspacing="0" style="border-collapse:collapse;border-spacing:0">
+            <tbody>
+              <tr>
+                <td width="650" align="center" bgcolor="#ffffff" style="display:none;visibility:hidden;opacity:0;color:transparent;max-height:0;max-width:0;overflow:hidden;mso-hide:all;">
+                  <p id="pre-header"
+                    style="margin:0;font-size:1px;line-height:1px;color:transparent;display:none;visibility:hidden;opacity:0;max-height:0;max-width:0;overflow:hidden;mso-hide:all;"
+                    aria-hidden="true">&nbsp;</p>
+                </td>
+              </tr>
+            </tbody>
+          </table>`;
+        editor.addComponents(block, { at: 0 });
+
+        comp = findComp("#pre-header");
+        return comp;
+      };
+
+      const setPreHeaderTextModel = (text: string) => {
+        const comp = ensurePreHeaderComp();
+        if (!comp) return;
+        const val = text && text.trim().length > 0 ? text : "&nbsp;";
+        comp.components(val);
+        comp.view?.render?.();
+      };
+
+      // === NEW: đọc text #pre-header một cách "chắc cú" (ưu tiên DOM/view, fallback NBSP) ===
+      const readPreHeaderText = (): string => {
+        try {
+          const comp = findComp("#pre-header");
+          const inner =
+            (comp?.view?.el?.textContent as string | undefined) ?? "";
+          const t1 = inner.replace(/\u00A0/g, " ").trim();
+          if (t1) return t1;
+        } catch {}
+        try {
+          const p = doc().getElementById("pre-header");
+          const t2 = ((p?.textContent as string) || "")
+            .replace(/\u00A0/g, " ")
+            .trim();
+          if (t2) return t2;
+        } catch {}
+        return "";
+      };
+
+      // === NEW: đồng bộ input khi #pre-header xuất hiện/cập nhật/xoá ===
+      const isPreHeaderComp = (m: any) =>
+        (m?.getAttributes?.() || {}).id === "pre-header";
+
+      const syncInputFromEditor = () => {
+        const t = readPreHeaderText();
+        setPreHeader(t);
+      };
+
+      const onCompAddOrUpdate = (m: any) => {
+        if (isPreHeaderComp(m)) syncInputFromEditor();
+      };
+      const onCompRemove = (m: any) => {
+        if (isPreHeaderComp(m)) setPreHeader("");
+      };
+
+      editor.on("component:add", onCompAddOrUpdate);
+      editor.on("component:update", onCompAddOrUpdate);
+      editor.on("component:remove", onCompRemove);
+
+      // Đọc giá trị ban đầu khi editor load
       editor.on("load", () => {
+        try {
+          syncInputFromEditor();
+        } catch {}
+
+        // Fallback layout nếu rỗng
         try {
           const comps = editor.getWrapper()?.components();
           const count =
@@ -187,36 +306,111 @@ export default function StepEditor({
               ? (comps as any).length
               : 0;
           if (count === 0) editor.setComponents(DEFAULT_HTML);
-        } catch (err) {
-          console.warn("Default wrapper fallback failed:", err);
-        }
+        } catch {}
       });
 
-      // Khung email 600px mặc định nếu phát hiện HTML rỗng
-      try {
-        const hasAnyContent = !!editor.getHtml()?.trim();
-        if (!hasAnyContent) {
-          editor.setComponents(DEFAULT_HTML);
-        }
-      } catch (e) {
-        console.warn("Skip default wrapper:", e);
-      }
-
+      // expose editor
       editorRef.current = editor;
-      onReady?.(); // 🆕 báo wizard biết editor đã sẵn sàng
+      onReady?.();
+
+      // đồng bộ lần đầu nếu state đã có (trong chế độ edit)
+      if (preHeader) setPreHeaderTextModel(preHeader);
     })();
 
     return () => {
       mounted = false;
-      // Cleanup chỉ chạy khi rời trang (wizard giữ component luôn mounted khi qua bước khác)
       editorRef.current?.destroy();
       editorRef.current = null;
     };
+    // ❗️KHÔNG đưa `preHeader` vào deps để tránh re-init khi đang gõ
   }, [editorRef, uploadedRef, draftIdRef, uploadProvider, apiBase, onReady]);
+
+  // Input -> cập nhật MODEL (ổn định). Giữ fallback DOM-based cũ.
+  const onChangePreHeader = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value || "";
+    setPreHeader(val);
+
+    const ed = editorRef.current;
+    if (!ed) return;
+
+    try {
+      const comp = (ed.getWrapper()?.find?.("#pre-header") ?? [])[0];
+      const safe = val.trim().length > 0 ? val : "&nbsp;";
+      if (comp) {
+        comp.components(safe);
+        comp.view?.render?.();
+      } else {
+        // nếu chưa có thì tạo rồi set (KHÔNG dùng <div> bọc)
+        const wrapper = ed.getWrapper?.();
+        ed.addComponents(
+          `<table role="presentation" class="container" width="650" border="0" cellpadding="0" cellspacing="0" style="border-collapse:collapse;border-spacing:0">
+            <tbody>
+              <tr>
+                <td width="650" align="center" bgcolor="#ffffff" style="display:none;visibility:hidden;opacity:0;color:transparent;max-height:0;max-width:0;overflow:hidden;mso-hide:all;">
+                  <p id="pre-header"
+                     style="margin:0;font-size:1px;line-height:1px;color:transparent;display:none;visibility:hidden;opacity:0;max-height:0;max-width:0;overflow:hidden;mso-hide:all;"
+                     aria-hidden="true">&nbsp;</p>
+                </td>
+              </tr>
+            </tbody>
+          </table>`,
+          { at: 0 }
+        );
+        const created = (wrapper?.find?.("#pre-header") ?? [])[0];
+        if (created) {
+          created.components(safe);
+          created.view?.render?.();
+        }
+      }
+    } catch {
+      // Fallback DOM-based
+      try {
+        const d = (editorRef.current as any)?.Canvas.getDocument() as Document;
+        let p = d.getElementById("pre-header") as HTMLElement | null;
+        if (!p) {
+          (editorRef.current as any)?.addComponents(
+            `<table role="presentation" class="container" width="650" border="0" cellpadding="0" cellspacing="0" style="border-collapse:collapse;border-spacing:0">
+              <tbody>
+                <tr>
+                  <td width="650" align="center" bgcolor="#ffffff" style="display:none;visibility:hidden;opacity:0;color:transparent;max-height:0;max-width:0;overflow:hidden;mso-hide:all;">
+                    <p id="pre-header"
+                       style="margin:0;font-size:1px;line-height:1px;color:transparent;display:none;visibility:hidden;opacity:0;max-height:0;max-width:0;overflow:hidden;mso-hide:all;"
+                       aria-hidden="true">&nbsp;</p>
+                  </td>
+                </tr>
+              </tbody>
+            </table>`,
+            { at: 0 }
+          );
+          p = d.getElementById("pre-header") as HTMLElement | null;
+        }
+        if (p) p.innerHTML = val.trim().length > 0 ? val : "&nbsp;";
+      } catch {}
+    }
+  };
 
   return (
     <div className="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden">
-      <div className="border-b px-4 py-2 text-sm text-gray-600">1. Editor</div>
+      <div className="border-b px-4 py-2 text-sm text-gray-600">
+        <div className="flex flex-col gap-2">
+          <div>1. Editor</div>
+          {/* Input Pre-header */}
+          <label className="flex items-center gap-2">
+            <span className="text-xs text-gray-600">Pre-header</span>
+            <input
+              value={preHeader}
+              onChange={onChangePreHeader}
+              placeholder="Nhập pre-header (40–140 ký tự)"
+              className="flex-1 rounded-md border px-3 py-1.5 text-sm"
+              maxLength={180}
+            />
+            <span className="text-[11px] text-gray-500">
+              {preHeader.length}/180
+            </span>
+          </label>
+        </div>
+      </div>
+
       <div ref={containerRef} className="min-h-[60vh]" />
     </div>
   );
