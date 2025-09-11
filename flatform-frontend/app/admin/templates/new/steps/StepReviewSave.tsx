@@ -7,41 +7,49 @@ export default function StepReviewSave({
   getFullHtml,
   onSave,
   isSaving,
+  saveLabel = "Create template",
+  refreshKey = 0, // 🆕 giúp re-compute khi editor được hydrate lại
 }: {
   getFullHtml: () => string;
-  onSave: () => Promise<void> | void; // handleSubmit có thể trả Promise
+  onSave: () => Promise<void> | void;
   isSaving?: boolean;
+  saveLabel?: string;
+  refreshKey?: number; // 🆕 optional
 }) {
   const { getValues } = useFormContext();
   const v = getValues();
 
-  // Lấy full HTML từ editor
-  const html = useMemo(() => getFullHtml(), [getFullHtml]);
+  // Lưu ý: getFullHtml đã là bản "hidden pre-header" được Wizard bọc sẵn.
+  const html = useMemo(() => getFullHtml(), [getFullHtml, refreshKey]);
 
-  // Tạo blob URL để render preview (iframe)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   useEffect(() => {
     const blob = new Blob([html || ""], { type: "text/html" });
     const url = URL.createObjectURL(blob);
     setPreviewUrl(url);
-    return () => URL.revokeObjectURL(url);
+    return () => {
+      try {
+        URL.revokeObjectURL(url);
+      } catch {}
+    };
   }, [html]);
 
   const handleSave = async () => {
     try {
       await Promise.resolve(onSave());
-      // toast success/thất bại đã được xử lý ở mutation (TemplateWizard)
     } catch {
-      // mutation onError đã toast; không cần alert
+      // nuốt lỗi để không crash ui; toast đã xử lý ở nơi gọi
     }
   };
+
+  const savingText =
+    saveLabel === "Create template" ? "Creating template..." : "Updating...";
 
   return (
     <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
       <div className="mb-4 text-sm text-gray-600">4. Review &amp; Save</div>
 
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-        {/* LEFT: Thông tin tóm tắt */}
         <div className="space-y-2">
           <Field label="Name" value={v.name || "—"} />
           <Field label="Slug" value={v.slug || "—"} />
@@ -51,7 +59,6 @@ export default function StepReviewSave({
           <Field label="Customer" value={v.customerId || "—"} />
           <Field label="Has images" value={v.hasImages ? "Yes" : "No"} />
 
-          {/* Nút Save ở BÊN DƯỚI cùng card (theo yêu cầu) */}
           <div className="pt-4">
             <button
               type="button"
@@ -59,12 +66,11 @@ export default function StepReviewSave({
               disabled={isSaving}
               className="rounded-lg bg-black px-4 py-2 text-sm text-white hover:bg-gray-900 disabled:opacity-60"
             >
-              {isSaving ? "Creating template..." : "Create template"}
+              {isSaving ? savingText : saveLabel}
             </button>
           </div>
         </div>
 
-        {/* RIGHT: Preview & Source HTML */}
         <div className="space-y-3">
           <div className="rounded-lg border">
             <div className="flex items-center justify-between border-b px-3 py-2">
@@ -76,7 +82,11 @@ export default function StepReviewSave({
               </div>
             </div>
             {previewUrl ? (
-              <iframe src={previewUrl} className="h-72 w-full rounded-b-lg" />
+              <iframe
+                src={previewUrl}
+                className="h-72 w-full rounded-b-lg"
+                title="Email preview"
+              />
             ) : (
               <div className="h-72 w-full rounded-b-lg" />
             )}

@@ -1,5 +1,6 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import {
+  IsArray,
   IsBoolean,
   IsNumber,
   IsOptional,
@@ -35,29 +36,34 @@ export class UpdateEmailTemplateDto {
   @IsBoolean()
   hasImages?: boolean;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ description: 'Decimal(10,2)' })
   @IsOptional()
-  @IsNumber()
+  @IsNumber({}, { message: 'price must be a number' })
   price?: number;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ default: 'USD' })
   @IsOptional()
   @IsString()
   currency?: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ description: 'Liên kết tới EmailCustomer' })
   @IsOptional()
   @IsString()
   customerId?: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ description: '0 = disabled, 1 = active' })
   @IsOptional()
   @IsNumber()
   statusId?: number;
 
   @ApiPropertyOptional({
-    description: 'Replace all tags by this list (optional)',
+    description: 'Tag IDs để cập nhật (tuỳ bạn: replace hay merge)',
+    isArray: true,
+    type: String,
   })
   @IsOptional()
+  @IsArray()
   tagIds?: string[];
+
+  // LƯU Ý: Không có draftId, images trong Update
 }

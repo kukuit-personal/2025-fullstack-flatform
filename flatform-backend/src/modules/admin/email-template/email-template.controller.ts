@@ -13,6 +13,7 @@ import {
   UseGuards,
   DefaultValuePipe,
   ParseIntPipe,
+  Patch,
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
@@ -20,6 +21,7 @@ import {
   ApiQuery,
   ApiResponse,
   ApiTags,
+  ApiBody,
 } from '@nestjs/swagger';
 
 import { JwtAuthGuard } from '@/common/guards/jwt-auth.guard';
@@ -29,13 +31,41 @@ import { Roles } from '@/common/decorators/roles.decorator';
 import { EmailTemplateService } from './email-template.service';
 import { CreateEmailTemplateDto } from './dto/create-email-template.dto';
 import { UpdateEmailTemplateDto } from './dto/update-email-template.dto';
+import { ThumbnailService } from './thumbnail.service';
 
 @ApiTags('Email Templates (Admin)')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('admin/email/templates')
 export class EmailTemplateAdminController {
-  constructor(private readonly service: EmailTemplateService) {}
+  constructor(
+    private readonly service: EmailTemplateService,
+    private readonly thumbs: ThumbnailService,
+  ) {}
+
+  // --------------------------
+  // Generate thumbnail preview from HTML
+  // --------------------------
+  @Roles('admin')
+  @Post('thumbnail/preview')
+  @ApiOperation({ summary: 'Generate thumbnail preview from HTML (admin)' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        html: { type: 'string' },
+        draftId: { type: 'string' },
+      },
+      required: ['html', 'draftId'],
+    },
+  })
+  async generatePreview(@Body() body: { html: string; draftId: string }) {
+    const { url200, url600 } = await this.thumbs.generatePreviewFromHtml(
+      body.html,
+      body.draftId,
+    );
+    return { url_thumbnail: url200, url_thumbnailx600: url600 };
+  }
 
   // --------------------------
   // Create
@@ -91,7 +121,7 @@ export class EmailTemplateAdminController {
   // Update
   // --------------------------
   @Roles('admin')
-  @Put(':id')
+  @Patch(':id')
   @ApiOperation({ summary: 'Update email template (admin)' })
   @ApiResponse({
     status: HttpStatus.OK,
