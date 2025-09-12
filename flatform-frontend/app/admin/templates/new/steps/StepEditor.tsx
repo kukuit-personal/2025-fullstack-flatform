@@ -7,19 +7,25 @@ type UploadProvider = "cloudinary" | "my-storage";
 const loadGrapes = () => import("grapesjs");
 const loadNewsletterPreset = () => import("grapesjs-preset-newsletter");
 
+// ===== Shared constants =====
+const NBSP = "&nbsp;";
+const PREHEADER_BLOCK = `
+<table role="presentation" width="650" border="0" cellpadding="0" cellspacing="0" style="border-collapse:collapse;border-spacing:0">
+  <tbody>
+    <tr>
+      <td width="650" align="center" bgcolor="#ffffff" style="display:none;visibility:hidden;opacity:0;color:transparent;max-height:0;max-width:0;overflow:hidden;mso-hide:all;">
+        <p id="pre-header"
+           style="margin:0;font-size:1px;line-height:1px;color:transparent;display:none;visibility:hidden;opacity:0;max-height:0;max-width:0;overflow:hidden;mso-hide:all;"
+           aria-hidden="true">${NBSP}</p>
+      </td>
+    </tr>
+  </tbody>
+</table>
+`;
+
 const DEFAULT_HTML = `
   <!-- Pre-header (hidden) -->
-  <table role="presentation" width="650" border="0" cellpadding="0" cellspacing="0" style="border-collapse:collapse;border-spacing:0;">
-    <tbody>
-      <tr>
-        <td width="650" align="center" bgcolor="#ffffff">
-          <p id="pre-header"
-            style="margin:0;font-size:1px;line-height:1px;color:transparent;display:none;visibility:hidden;opacity:0;max-height:0;max-width:0;overflow:hidden;mso-hide:all;"
-            aria-hidden="true">&nbsp;</p>
-        </td>
-      </tr>
-    </tbody>
-  </table>
+  ${PREHEADER_BLOCK}
   <!-- End Pre-header -->
 
   <!-- Main --> 
@@ -33,6 +39,7 @@ const DEFAULT_HTML = `
     </tbody>
   </table>
 `;
+
 export default function StepEditor({
   editorRef,
   uploadedRef,
@@ -179,25 +186,13 @@ export default function StepEditor({
         },
       });
 
-      // ===== Helpers: DOM-based (giữ lại làm fallback) =====
+      // ===== Helpers: DOM-based (fallback) =====
       const doc = () => editor.Canvas.getDocument() as Document;
 
       const ensurePreHeader = (): HTMLElement | null => {
         const exist = doc().getElementById("pre-header") as HTMLElement | null;
         if (exist) return exist;
-        const block = `
-        <table role="presentation" class="container" width="650" border="0" cellpadding="0" cellspacing="0" style="border-collapse:collapse;border-spacing:0">
-          <tbody>
-            <tr>
-              <td width="650" align="center" bgcolor="#ffffff" style="display:none;visibility:hidden;opacity:0;color:transparent;max-height:0;max-width:0;overflow:hidden;mso-hide:all;">
-                <p id="pre-header"
-                    style="margin:0;font-size:1px;line-height:1px;color:transparent;display:none;visibility:hidden;opacity:0;max-height:0;max-width:0;overflow:hidden;mso-hide:all;"
-                    aria-hidden="true">&nbsp;</p>
-              </td>
-            </tr>
-          </tbody>
-        </table>`;
-        editor.addComponents(block, { at: 0 });
+        editor.addComponents(PREHEADER_BLOCK, { at: 0 });
         return doc().getElementById("pre-header") as HTMLElement | null;
       };
 
@@ -214,21 +209,7 @@ export default function StepEditor({
       const ensurePreHeaderComp = (): any | undefined => {
         let comp = findComp("#pre-header");
         if (comp) return comp;
-
-        const block = `
-          <table role="presentation" class="container" width="650" border="0" cellpadding="0" cellspacing="0" style="border-collapse:collapse;border-spacing:0">
-            <tbody>
-              <tr>
-                <td width="650" align="center" bgcolor="#ffffff" style="display:none;visibility:hidden;opacity:0;color:transparent;max-height:0;max-width:0;overflow:hidden;mso-hide:all;">
-                  <p id="pre-header"
-                    style="margin:0;font-size:1px;line-height:1px;color:transparent;display:none;visibility:hidden;opacity:0;max-height:0;max-width:0;overflow:hidden;mso-hide:all;"
-                    aria-hidden="true">&nbsp;</p>
-                </td>
-              </tr>
-            </tbody>
-          </table>`;
-        editor.addComponents(block, { at: 0 });
-
+        editor.addComponents(PREHEADER_BLOCK, { at: 0 });
         comp = findComp("#pre-header");
         return comp;
       };
@@ -236,12 +217,12 @@ export default function StepEditor({
       const setPreHeaderTextModel = (text: string) => {
         const comp = ensurePreHeaderComp();
         if (!comp) return;
-        const val = text && text.trim().length > 0 ? text : "&nbsp;";
+        const val = text && text.trim().length > 0 ? text : NBSP;
         comp.components(val);
         comp.view?.render?.();
       };
 
-      // === NEW: đọc text #pre-header một cách "chắc cú" (ưu tiên DOM/view, fallback NBSP) ===
+      // === Read text safely (ưu tiên view/DOM, fallback NBSP) ===
       const readPreHeaderText = (): string => {
         try {
           const comp = findComp("#pre-header");
@@ -260,7 +241,7 @@ export default function StepEditor({
         return "";
       };
 
-      // === NEW: đồng bộ input khi #pre-header xuất hiện/cập nhật/xoá ===
+      // === Sync input when #pre-header appears/updates/removes ===
       const isPreHeaderComp = (m: any) =>
         (m?.getAttributes?.() || {}).id === "pre-header";
 
@@ -280,7 +261,7 @@ export default function StepEditor({
       editor.on("component:update", onCompAddOrUpdate);
       editor.on("component:remove", onCompRemove);
 
-      // Đọc giá trị ban đầu khi editor load
+      // Initial read on load
       editor.on("load", () => {
         try {
           syncInputFromEditor();
@@ -301,7 +282,7 @@ export default function StepEditor({
       editorRef.current = editor;
       onReady?.();
 
-      // đồng bộ lần đầu nếu state đã có (trong chế độ edit)
+      // sync once if state already has value (edit mode)
       if (preHeader) setPreHeaderTextModel(preHeader);
     })();
 
@@ -310,10 +291,10 @@ export default function StepEditor({
       editorRef.current?.destroy();
       editorRef.current = null;
     };
-    // ❗️KHÔNG đưa `preHeader` vào deps để tránh re-init khi đang gõ
+    // ❗️Đừng đưa `preHeader` vào deps để tránh re-init khi đang gõ
   }, [editorRef, uploadedRef, draftIdRef, uploadProvider, apiBase, onReady]);
 
-  // Input -> cập nhật MODEL (ổn định). Giữ fallback DOM-based cũ.
+  // Input -> update MODEL (giữ logic cũ, có fallback DOM)
   const onChangePreHeader = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value || "";
     setPreHeader(val);
@@ -323,28 +304,14 @@ export default function StepEditor({
 
     try {
       const comp = (ed.getWrapper()?.find?.("#pre-header") ?? [])[0];
-      const safe = val.trim().length > 0 ? val : "&nbsp;";
+      const safe = val.trim().length > 0 ? val : NBSP;
       if (comp) {
         comp.components(safe);
         comp.view?.render?.();
       } else {
         // nếu chưa có thì tạo rồi set (KHÔNG dùng <div> bọc)
-        const wrapper = ed.getWrapper?.();
-        ed.addComponents(
-          `<table role="presentation" class="container" width="650" border="0" cellpadding="0" cellspacing="0" style="border-collapse:collapse;border-spacing:0">
-            <tbody>
-              <tr>
-                <td width="650" align="center" bgcolor="#ffffff" style="display:none;visibility:hidden;opacity:0;color:transparent;max-height:0;max-width:0;overflow:hidden;mso-hide:all;">
-                  <p id="pre-header"
-                     style="margin:0;font-size:1px;line-height:1px;color:transparent;display:none;visibility:hidden;opacity:0;max-height:0;max-width:0;overflow:hidden;mso-hide:all;"
-                     aria-hidden="true">&nbsp;</p>
-                </td>
-              </tr>
-            </tbody>
-          </table>`,
-          { at: 0 }
-        );
-        const created = (wrapper?.find?.("#pre-header") ?? [])[0];
+        ed.addComponents(PREHEADER_BLOCK, { at: 0 });
+        const created = (ed.getWrapper()?.find?.("#pre-header") ?? [])[0];
         if (created) {
           created.components(safe);
           created.view?.render?.();
@@ -356,23 +323,10 @@ export default function StepEditor({
         const d = (editorRef.current as any)?.Canvas.getDocument() as Document;
         let p = d.getElementById("pre-header") as HTMLElement | null;
         if (!p) {
-          (editorRef.current as any)?.addComponents(
-            `<table role="presentation" class="container" width="650" border="0" cellpadding="0" cellspacing="0" style="border-collapse:collapse;border-spacing:0">
-              <tbody>
-                <tr>
-                  <td width="650" align="center" bgcolor="#ffffff" style="display:none;visibility:hidden;opacity:0;color:transparent;max-height:0;max-width:0;overflow:hidden;mso-hide:all;">
-                    <p id="pre-header"
-                       style="margin:0;font-size:1px;line-height:1px;color:transparent;display:none;visibility:hidden;opacity:0;max-height:0;max-width:0;overflow:hidden;mso-hide:all;"
-                       aria-hidden="true">&nbsp;</p>
-                  </td>
-                </tr>
-              </tbody>
-            </table>`,
-            { at: 0 }
-          );
+          (editorRef.current as any)?.addComponents(PREHEADER_BLOCK, { at: 0 });
           p = d.getElementById("pre-header") as HTMLElement | null;
         }
-        if (p) p.innerHTML = val.trim().length > 0 ? val : "&nbsp;";
+        if (p) p.innerHTML = val.trim().length > 0 ? val : NBSP;
       } catch {}
     }
   };
