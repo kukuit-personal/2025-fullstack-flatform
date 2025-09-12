@@ -3,12 +3,11 @@
 import { useEffect, useRef, useState } from "react";
 import {
   initEmailGrapesEditor,
-  createPreheaderHelpers,
   PREHEADER_BLOCK,
   DEFAULT_HTML,
   NBSP,
   type UploadProvider,
-} from "./grapes-editor";
+} from "./grapes-editor.config";
 
 export default function StepEditor({
   editorRef,
@@ -41,7 +40,7 @@ export default function StepEditor({
         uploadProvider,
         apiBaseUrl: apiBase ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? undefined,
         height: "calc(100vh - 50px)",
-        keepPresetBlocks: true,
+        keepPresetBlocks: true, // giữ block mặc định để hiển thị ở category "Layout"
         categories: {
           emailLayoutLabel: "Email layout",
           layoutLabel: "Layout",
@@ -50,16 +49,60 @@ export default function StepEditor({
         },
       });
 
-      const {
-        ensurePreHeaderComp,
-        ensurePreHeaderDOM,
-        setPreHeaderTextModel,
-        readPreHeaderText,
-        isPreHeaderComp,
-      } = createPreheaderHelpers(editor);
+      // ===== Helpers: DOM-based (fallback)
+      const doc = () => editor.Canvas.getDocument() as Document;
 
-      // Sync input when #pre-header changes
-      const syncInputFromEditor = () => setPreHeader(readPreHeaderText());
+      const ensurePreHeader = (): HTMLElement | null => {
+        const exist = doc().getElementById("pre-header") as HTMLElement | null;
+        if (exist) return exist;
+        editor.addComponents(PREHEADER_BLOCK, { at: 0 });
+        return doc().getElementById("pre-header") as HTMLElement | null;
+      };
+
+      const findComp = (selector: string) =>
+        (editor.getWrapper()?.find?.(selector) ?? [])[0] as any | undefined;
+
+      const ensurePreHeaderComp = (): any | undefined => {
+        let comp = findComp("#pre-header");
+        if (comp) return comp;
+        editor.addComponents(PREHEADER_BLOCK, { at: 0 });
+        comp = findComp("#pre-header");
+        return comp;
+      };
+
+      const setPreHeaderTextModel = (text: string) => {
+        const comp = ensurePreHeaderComp();
+        if (!comp) return;
+        const val = text && text.trim().length > 0 ? text : NBSP;
+        comp.components(val);
+        comp.view?.render?.();
+      };
+
+      const readPreHeaderText = (): string => {
+        try {
+          const comp = findComp("#pre-header");
+          const inner =
+            (comp?.view?.el?.textContent as string | undefined) ?? "";
+          const t1 = inner.replace(/\u00A0/g, " ").trim();
+          if (t1) return t1;
+        } catch {}
+        try {
+          const p = doc().getElementById("pre-header");
+          const t2 = ((p?.textContent as string) || "")
+            .replace(/\u00A0/g, " ")
+            .trim();
+          if (t2) return t2;
+        } catch {}
+        return "";
+      };
+
+      const isPreHeaderComp = (m: any) =>
+        (m?.getAttributes?.() || {}).id === "pre-header";
+
+      const syncInputFromEditor = () => {
+        const t = readPreHeaderText();
+        setPreHeader(t);
+      };
 
       const onCompAddOrUpdate = (m: any) => {
         if (isPreHeaderComp(m)) syncInputFromEditor();
@@ -87,17 +130,17 @@ export default function StepEditor({
         } catch {}
       });
 
-      // expose editor
+      // expose
       editorRef.current = editor;
       onReady?.();
 
-      // sync once if state already has value
+      // sync once if state had value
       if (preHeader) setPreHeaderTextModel(preHeader);
     })();
 
     return () => {
       mounted = false;
-      editorRef.current?.destroy?.();
+      editorRef.current?.destroy();
       editorRef.current = null;
     };
   }, [editorRef, uploadedRef, draftIdRef, uploadProvider, apiBase, onReady]);
@@ -132,7 +175,7 @@ export default function StepEditor({
           (editorRef.current as any)?.addComponents(PREHEADER_BLOCK, { at: 0 });
           p = d.getElementById("pre-header") as HTMLElement | null;
         }
-        if (p) p.innerHTML = (val.trim().length > 0 ? val : NBSP) as string;
+        if (p) p.innerHTML = val.trim().length > 0 ? val : NBSP;
       } catch {}
     }
   };
