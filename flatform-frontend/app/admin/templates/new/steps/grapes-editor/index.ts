@@ -51,7 +51,7 @@ export async function initEmailGrapesEditor(opts: InitEditorOptions) {
 
   // Categories
   setupCategories(editor, {
-    emailLayoutLabel: opts.categories?.emailLayoutLabel ?? "Email layout",
+    emailLayoutLabel: opts.categories?.emailLayoutLabel ?? "Email Layouts",
     layoutLabel: opts.categories?.layoutLabel ?? "Layout",
     emailLayoutOpen: !!opts.categories?.emailLayoutOpen,
     layoutOpen: !!opts.categories?.layoutOpen,
@@ -61,7 +61,7 @@ export async function initEmailGrapesEditor(opts: InitEditorOptions) {
   moveAllBlocksToCategory(editor, "layout", opts.categories?.layoutLabel ?? "Layout");
   registerCustomBlocks(editor, {
     categoryId: "email-layout",
-    categoryLabel: opts.categories?.emailLayoutLabel ?? "Email layout",
+    categoryLabel: opts.categories?.emailLayoutLabel ?? "Email Layouts",
   });
 
   return editor;

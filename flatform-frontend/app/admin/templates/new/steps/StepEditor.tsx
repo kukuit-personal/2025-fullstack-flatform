@@ -43,8 +43,8 @@ export default function StepEditor({
         height: "calc(100vh - 50px)",
         keepPresetBlocks: true,
         categories: {
-          emailLayoutLabel: "Email layout",
-          layoutLabel: "Layout",
+          emailLayoutLabel: "Email Layouts",
+          layoutLabel: "Default Layouts",
           emailLayoutOpen: true,
           layoutOpen: false,
         },

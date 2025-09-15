@@ -54,7 +54,7 @@ export const BLOCK_HALF_SECTION = `
 
 export function registerCustomBlocks(editor: any, opts?: { categoryId?: string; categoryLabel?: string }) {
   const catId = opts?.categoryId ?? "email-layout";
-  const catLabel = opts?.categoryLabel ?? "Email layout";
+  const catLabel = opts?.categoryLabel ?? "Email layouts";
   const bm = editor.BlockManager;
 
   bm.add("one-section", {
