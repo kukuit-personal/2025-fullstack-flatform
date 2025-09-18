@@ -58,7 +58,7 @@ export default function TemplatesPage() {
       </div>
 
       {/* Filters */}
-      <div className="relative z-20">
+      <div className="relative z-10">
         <Filters q={q} setQ={setQ} />
       </div>
 
