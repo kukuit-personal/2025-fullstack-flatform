@@ -58,7 +58,9 @@ export default function TemplatesPage() {
       </div>
 
       {/* Filters */}
-      <Filters q={q} setQ={setQ} />
+      <div className="relative z-20">
+        <Filters q={q} setQ={setQ} />
+      </div>
 
       {/* Grid */}
       {isError && (

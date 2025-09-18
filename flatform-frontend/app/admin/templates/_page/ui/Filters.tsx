@@ -118,50 +118,41 @@ export function Filters({
   }, [from, to, selectedStatuses.length, selectedCustomerId, customerLabel]);
 
   return (
-    <div className="sticky top-2 z-20">
+    <div className="top-2 z-20">
       <div className="rounded-2xl border bg-white/80 backdrop-blur supports-[backdrop-filter]:bg-white/60 p-3 md:p-4 shadow-sm">
-        {/* Row 1: basic + actions + toggle */}
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-6 gap-3 items-end">
+        {/* Row 1: basic search + toggle */}
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
           {/* Name */}
-          <label className="flex flex-col gap-1 xl:col-span-2">
-            <span className="text-xs font-medium text-gray-600">
-              Search by name
-            </span>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              onKeyDown={onEnterApply}
-              placeholder="e.g. Template #12"
-              className="w-full rounded-xl border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-black/10"
-            />
-          </label>
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            onKeyDown={onEnterApply}
+            placeholder="Search by name..."
+            className="w-full rounded-xl border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-black/10"
+          />
 
           {/* Tag */}
-          <label className="flex flex-col gap-1 xl:col-span-2">
-            <span className="text-xs font-medium text-gray-600">Tag</span>
-            <input
-              type="text"
-              value={tag}
-              onChange={(e) => setTag(e.target.value)}
-              onKeyDown={onEnterApply}
-              placeholder="e.g. newsletter"
-              className="w-full rounded-xl border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-black/10"
-            />
-          </label>
+          <input
+            type="text"
+            value={tag}
+            onChange={(e) => setTag(e.target.value)}
+            onKeyDown={onEnterApply}
+            placeholder="Tag..."
+            className="w-full rounded-xl border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-black/10"
+          />
 
           {/* Toggle + chips */}
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={() => setAdvancedOpen((v) => !v)}
               className="px-3 py-2 rounded-xl border text-sm hover:bg-gray-50"
               aria-expanded={advancedOpen}
             >
-              {advancedOpen ? "Hide filters" : "More filters"}
+              {advancedOpen ? "Hide filters ▲" : "More filters ▼"}
             </button>
 
-            {/* Chips summary */}
             {!advancedOpen && summaryChips.length > 0 && (
               <div className="flex flex-wrap gap-1">
                 {summaryChips.map((c, idx) => (
@@ -174,22 +165,6 @@ export function Filters({
                 ))}
               </div>
             )}
-          </div>
-
-          {/* Actions */}
-          <div className="flex items-end gap-2 justify-start xl:justify-end">
-            <button
-              onClick={onApply}
-              className="px-3 py-2 rounded-xl bg-black text-white text-sm"
-            >
-              Apply
-            </button>
-            <button
-              onClick={onClear}
-              className="px-3 py-2 rounded-xl border text-sm"
-            >
-              Clear
-            </button>
           </div>
         </div>
 
@@ -225,7 +200,7 @@ export function Filters({
             </label>
 
             {/* Status multi-select */}
-            <div className="relative">
+            <div className="relative" ref={statusRef}>
               <span className="text-xs font-medium text-gray-600">Status</span>
               <button
                 type="button"
@@ -282,7 +257,7 @@ export function Filters({
             </div>
 
             {/* Customer single-select */}
-            <div className="relative">
+            <div className="relative" ref={customerRef}>
               <span className="text-xs font-medium text-gray-600">
                 Customer
               </span>
@@ -329,6 +304,22 @@ export function Filters({
             </div>
           </div>
         )}
+
+        {/* Actions luôn ở dưới cùng */}
+        <div className="mt-3 flex items-center gap-2 justify-end">
+          <button
+            onClick={onApply}
+            className="px-3 py-2 rounded-xl bg-black text-white text-sm"
+          >
+            Apply
+          </button>
+          <button
+            onClick={onClear}
+            className="px-3 py-2 rounded-xl border text-sm"
+          >
+            Clear
+          </button>
+        </div>
       </div>
     </div>
   );
