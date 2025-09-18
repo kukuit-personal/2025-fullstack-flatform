@@ -200,12 +200,12 @@ export function Filters({
             </label>
 
             {/* Status multi-select */}
-            <div className="relative" ref={statusRef}>
+            <div className="relative flex flex-col gap-1" ref={statusRef}>
               <span className="text-xs font-medium text-gray-600">Status</span>
               <button
                 type="button"
                 onClick={() => setStatusOpen((o) => !o)}
-                className="mt-1 w-full rounded-xl border px-3 py-2 text-left text-sm hover:bg-gray-50"
+                className="w-full rounded-xl border px-3 py-2 text-left text-sm hover:bg-gray-50"
                 aria-expanded={statusOpen}
               >
                 {statusLabel}
@@ -257,20 +257,25 @@ export function Filters({
             </div>
 
             {/* Customer single-select */}
-            <div className="relative" ref={customerRef}>
+            <div className="relative flex flex-col gap-1" ref={customerRef}>
               <span className="text-xs font-medium text-gray-600">
                 Customer
               </span>
               <button
                 type="button"
                 onClick={() => setCustomerOpen((o) => !o)}
-                className="mt-1 w-full rounded-xl border px-3 py-2 text-left text-sm hover:bg-gray-50"
+                className="w-full rounded-xl border px-3 py-2 text-left text-sm hover:bg-gray-50"
                 aria-expanded={customerOpen}
+                aria-haspopup="listbox"
               >
                 {customerLabel}
               </button>
               {customerOpen && (
-                <div className="absolute z-20 mt-2 w-64 rounded-xl border bg-white shadow-lg p-2">
+                <div
+                  role="listbox"
+                  aria-label="Customer"
+                  className="absolute z-20 mt-2 w-64 rounded-xl border bg-white shadow-lg p-2"
+                >
                   <div className="max-h-56 overflow-auto space-y-1 px-2 py-1">
                     {CUSTOMER_OPTIONS.map((c) => (
                       <label
@@ -278,14 +283,11 @@ export function Filters({
                         className="flex items-center gap-2 text-sm"
                       >
                         <input
-                          type="checkbox"
+                          type="radio"
+                          name="customer"
                           checked={selectedCustomerId === c.id}
-                          onChange={() =>
-                            setSelectedCustomerId((prev) =>
-                              prev === c.id ? "" : c.id
-                            )
-                          }
-                          className="h-4 w-4 rounded border-gray-300"
+                          onChange={() => setSelectedCustomerId(c.id)}
+                          className="h-4 w-4 border-gray-300"
                         />
                         <span>{c.label}</span>
                       </label>
@@ -306,7 +308,7 @@ export function Filters({
         )}
 
         {/* Actions luôn ở dưới cùng */}
-        <div className="mt-3 flex items-center gap-2 justify-end">
+        <div className="mt-3 flex items-center gap-2">
           <button
             onClick={onApply}
             className="px-3 py-2 rounded-xl bg-black text-white text-sm"

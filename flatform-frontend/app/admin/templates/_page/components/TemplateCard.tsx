@@ -15,9 +15,9 @@ export function TemplateCard({
   return (
     <div className="rounded-2xl border bg-white shadow-sm overflow-hidden">
       <div className="aspect-video relative bg-gray-50">
-        {t.thumbnailUrl ? (
+        {t.thumbnailUrlx600 ? (
           <Image
-            src={t.thumbnailUrl}
+            src={t.thumbnailUrlx600}
             alt={t.name}
             fill
             className="object-cover"
@@ -74,7 +74,7 @@ export function TemplateCard({
             <div className="text-md text-gray-500">{formatPrice(t.price)}</div>
           )}
           <button
-            onClick={() => t.thumbnailUrl && onPreview(t.thumbnailUrl)}
+            onClick={() => t.thumbnailUrlx600 && onPreview(t.thumbnailUrlx600)}
             className="px-3 py-1.5 rounded-xl bg-gray-700 text-white text-sm"
           >
             View
