@@ -466,55 +466,103 @@ export class EmailTemplateService {
   // =========================
   // Search / List
   // =========================
-  async search(actor: Actor, query: SearchEmailTemplatesDto) {
-    const page = Number(query.page) || 1;
-    const limit = Number(query.limit) || 10;
-    const skip = (page - 1) * limit;
+  async search(actor: { id: string; role?: string }, query: SearchEmailTemplatesDto) {
+  const page = Number(query.page) || 1;
+  const limit = Number(query.limit) || 12;
+  const skip = (page - 1) * limit;
 
-    const keyword =
-      (query as any).keyword?.trim() || (query as any).q?.trim() || undefined;
+  const toEndOfDay = (iso?: string) => {
+    if (!iso) return undefined;
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return undefined;
+    d.setHours(23, 59, 59, 999);
+    return d;
+  };
 
-    const baseWhere: any = {
-      ...(keyword && {
-        OR: [
-          { name: { contains: keyword, mode: 'insensitive' } },
-          { slug: { contains: keyword, mode: 'insensitive' } },
-          { description: { contains: keyword, mode: 'insensitive' } },
-          // { html: { contains: keyword, mode: 'insensitive' } }, // nếu cần
-        ],
-      }),
-      ...((query as any).statusId && {
-        statusId: Number((query as any).statusId),
-      }),
-    };
+  // gom single -> many để xử lý chung
+  const statusIds =
+    (query.statusIds && query.statusIds.length ? query.statusIds : undefined) ??
+    (typeof query.statusId === 'number' && Number.isFinite(query.statusId)
+      ? [query.statusId]
+      : undefined);
 
-    // admin -> bỏ qua owner/shared; user thường -> thêm accessWhere
-    const where = this.isAdmin(actor)
-      ? baseWhere
-      : { AND: [baseWhere, this.accessWhere(actor)] };
+  // 1) điều kiện gốc
+  const baseWhere: Prisma.EmailTemplateWhereInput = {
+    ...(query.name && { name: { contains: query.name } }),
+    ...(query.customerId && { customerId: query.customerId }),
+    ...(statusIds && { statusId: { in: statusIds } }), // 🆕 many statuses
+  };
 
-    const [total, data] = await this.prisma.$transaction([
-      this.prisma.emailTemplate.count({ where }),
-      this.prisma.emailTemplate.findMany({
-        where,
-        skip,
-        take: limit,
-        orderBy: { updatedAt: 'desc' },
-        include: {
-          shares: true,
-          creator: { select: { id: true, email: true } }, // quan hệ user theo schema
-        },
-      }),
-    ]);
+  // 2) điều kiện bổ sung
+  const and: Prisma.EmailTemplateWhereInput[] = [];
 
-    return {
-      data,
-      page,
-      limit,
-      total,
-      totalPages: Math.ceil(total / limit),
-    };
+  // tag (đơn)
+  if (query.tag) {
+    and.push({
+      tags: { some: { tag: { name: { contains: query.tag } } } },
+    });
   }
+
+  // tags (nhiều) – ANY OF
+  if (query.tags?.length) {
+    and.push({
+      tags: { some: { tag: { name: { in: query.tags } } } },
+    });
+  }
+
+  // createdAt range
+  const createdFrom = query.createdFrom ? new Date(query.createdFrom) : undefined;
+  const createdTo = toEndOfDay(query.createdTo);
+  if (createdFrom || createdTo) {
+    and.push({
+      createdAt: {
+        ...(createdFrom && { gte: createdFrom }),
+        ...(createdTo && { lte: createdTo }),
+      },
+    });
+  }
+
+  // updatedAt range
+  const updatedFrom = query.updatedFrom ? new Date(query.updatedFrom) : undefined;
+  const updatedTo = toEndOfDay(query.updatedTo);
+  if (updatedFrom || updatedTo) {
+    and.push({
+      updatedAt: {
+        ...(updatedFrom && { gte: updatedFrom }),
+        ...(updatedTo && { lte: updatedTo }),
+      },
+    });
+  }
+
+  // 3) gộp access-control
+  const where: Prisma.EmailTemplateWhereInput = this.isAdmin(actor)
+    ? and.length ? { AND: [baseWhere, ...and] } : baseWhere
+    : { AND: [baseWhere, ...and, this.accessWhere(actor)] };
+
+  // 4) sort + query
+  const sortBy = query.sortBy ?? 'updatedAt';
+  const sortDir = query.sortDir ?? 'desc';
+
+  const [total, data] = await this.prisma.$transaction([
+    this.prisma.emailTemplate.count({ where }),
+    this.prisma.emailTemplate.findMany({
+      where,
+      skip,
+      take: limit,
+      orderBy: { [sortBy]: sortDir },
+      include: {
+        creator: { select: { id: true, email: true } },
+        tags: { include: { tag: true } },
+        customer: { select: { id: true, name: true, email: true } },
+      },
+    }),
+  ]);
+
+  return { data, page, limit, total, totalPages: Math.ceil(total / limit) };
+}
+
+
+
 
   // =========================
   // Get one

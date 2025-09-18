@@ -32,6 +32,7 @@ import { EmailTemplateService } from './email-template.service';
 import { CreateEmailTemplateDto } from './dto/create-email-template.dto';
 import { UpdateEmailTemplateDto } from './dto/update-email-template.dto';
 import { ThumbnailService } from './thumbnail.service';
+import { SearchEmailTemplatesDto } from './dto/search-email-templates.dto';
 
 @ApiTags('Email Templates (Admin)')
 @ApiBearerAuth()
@@ -86,20 +87,10 @@ export class EmailTemplateAdminController {
   // --------------------------
   @Roles('admin')
   @Get()
-  @ApiOperation({ summary: 'Get all email templates with pagination (admin)' })
-  @ApiQuery({ name: 'page', required: false, example: 1 })
-  @ApiQuery({ name: 'limit', required: false, example: 10 })
-  @ApiResponse({
-    status: HttpStatus.OK,
-    description: 'List of templates with pagination',
-  })
-  async findAll(
-    @Req() req: any,
-    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
-    @Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit: number,
-  ) {
-    // Bám chuẩn UsersController: chỉ lấy page/limit và chuyển xuống service
-    return this.service.search(req.user, { page, limit } as any);
+  @ApiOperation({ summary: 'Get email templates (search/paginate/filter) - admin' })
+  @ApiResponse({ status: 200, description: 'List with pagination' })
+  async findAll(@Req() req: any, @Query() query: SearchEmailTemplatesDto) {
+    return this.service.search(req.user, query);
   }
 
   // --------------------------
