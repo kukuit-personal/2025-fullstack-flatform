@@ -12,17 +12,17 @@ import {
   createEmailTemplate,
   getEmailTemplate,
   updateEmailTemplate,
-} from "./service";
-import { CurrencyEnum } from "./constants";
-import { toCreatePayload } from "./adapter";
-import { NewTemplateForm, NewTemplateFormValues } from "./types";
+} from "../service";
+import { CurrencyEnum } from "../constants";
+import { toCreatePayload } from "../adapter";
+import { NewTemplateForm, NewTemplateFormValues } from "../types";
 
-import Stepper from "./components/Stepper";
-import StepEditor from "./steps/StepEditor";
-import StepInfo from "./steps/StepInfo";
-import StepThumbnail from "./steps/StepThumbnail";
-import StepReviewSave from "./steps/StepReviewSave";
-import StepExport from "./steps/StepExport";
+import Stepper from "../components/Stepper";
+import StepEditor from "../steps/StepEditor";
+import StepInfo from "../steps/StepInfo";
+import StepThumbnail from "../steps/StepThumbnail";
+import StepReviewSave from "../steps/StepReviewSave";
+import StepExport from "../steps/StepExport";
 
 export type UploadedImage = {
   url: string;
@@ -55,7 +55,9 @@ type TabKey = keyof typeof TAB_TO_STEP;
 function ensureHiddenPreheader(html: string): string {
   try {
     const hasHtmlTag = /<\s*html[\s>]/i.test(html);
-    const shell = hasHtmlTag ? html : `<!doctype html><html><body>${html}</body></html>`;
+    const shell = hasHtmlTag
+      ? html
+      : `<!doctype html><html><body>${html}</body></html>`;
     const doc = new DOMParser().parseFromString(shell, "text/html");
     const p = doc.getElementById("pre-header") as HTMLElement | null;
     if (p) {
@@ -65,7 +67,11 @@ function ensureHiddenPreheader(html: string): string {
       p.setAttribute("aria-hidden", "true");
       // Gia cố cho <td> cha (đặc biệt Outlook)
       const td = p.closest("td") as HTMLElement | null;
-      if (td) td.setAttribute("style", `${td.getAttribute("style") || ""};mso-hide:all !important;`);
+      if (td)
+        td.setAttribute(
+          "style",
+          `${td.getAttribute("style") || ""};mso-hide:all !important;`
+        );
     }
     // Trả lại đúng “dạng” như input
     return hasHtmlTag ? doc.documentElement.outerHTML : doc.body.innerHTML;
@@ -231,8 +237,7 @@ export default function TemplateWizard({
       slug: tmplData.slug ?? "",
       description: tmplData.description ?? "",
       price: Number(tmplData.price ?? 0),
-      currency:
-        (tmplData.currency as CurrencyEnum) ?? (defaultCurrency as any),
+      currency: (tmplData.currency as CurrencyEnum) ?? (defaultCurrency as any),
       hasImages: !!tmplData.hasImages,
       customerId: tmplData.customerId ?? null,
       thumbnailUrl: tmplData.urlThumbnail ?? null,

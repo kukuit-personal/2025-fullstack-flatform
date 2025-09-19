@@ -1,6 +1,6 @@
 "use client";
 
-import TemplateWizard from "./TemplateWizard";
+import TemplateWizard from "./ui/TemplateWizard";
 
 export default function Page() {
   return <TemplateWizard />;
