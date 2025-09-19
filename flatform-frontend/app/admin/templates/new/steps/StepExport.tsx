@@ -4,7 +4,8 @@ import { useMemo } from "react";
 import JSZip from "jszip";
 
 type Props = {
-  getFullHtml: () => string;
+  /** Lấy HTML đã inline + ẩn preheader */
+  getFullHtml: () => Promise<string>;
   /** URL ảnh thumbnail (nếu có). Khuyến nghị: lưu ở form field 'thumbnailUrl' rồi truyền xuống đây. */
   thumbnailUrl?: string | null;
   /** Tên file cơ sở cho export */
@@ -104,96 +105,116 @@ export default function StepExport({
   };
 
   // ===== 1) Export HTML (img src online) =====
-  const exportHtmlOnline = () => {
-    const html = getFullHtml(); // đã ẩn pre-header từ Wizard
-    if (!html || !html.trim()) return alert("HTML trống.");
-    textDownload(html, "text/html", `${filenameBase}.html`);
+  const exportHtmlOnline = async () => {
+    try {
+      const html = await getFullHtml(); // đã inline + ẩn pre-header
+      if (!html || !html.trim()) return alert("HTML trống.");
+      textDownload(html, "text/html", `${filenameBase}.html`);
+    } catch (e) {
+      console.error(e);
+      alert("Xuất HTML thất bại.");
+    }
   };
 
   // ===== 2) Export HTML - With thumbnail (zip: html online + thumbnail.jpg) =====
   const exportHtmlOnlineWithThumbnail = async () => {
-    const html = getFullHtml(); // đã ẩn pre-header từ Wizard
-    if (!html || !html.trim()) return alert("HTML trống.");
-    if (!thumbnailUrl)
-      return alert("Chưa có thumbnail. Hãy tạo/nhập thumbnail trước.");
-
-    const zip = new JSZip();
-    zip.file(`${filenameBase}.html`, html);
-
     try {
-      const { data } = await fetchImageBinary(thumbnailUrl);
-      zip.file(`thumbnail.jpg`, data);
+      const html = await getFullHtml();
+      if (!html || !html.trim()) return alert("HTML trống.");
+      if (!thumbnailUrl)
+        return alert("Chưa có thumbnail. Hãy tạo/nhập thumbnail trước.");
+
+      const zip = new JSZip();
+      zip.file(`${filenameBase}.html`, html);
+
+      try {
+        const { data } = await fetchImageBinary(thumbnailUrl);
+        zip.file(`thumbnail.jpg`, data);
+      } catch (e) {
+        console.error(e);
+        return alert("Không tải được thumbnail.");
+      }
+
+      const blob = await zip.generateAsync({ type: "blob" });
+      blobDownload(blob, `${filenameBase}__html+thumbnail.zip`);
     } catch (e) {
       console.error(e);
-      return alert("Không tải được thumbnail.");
+      alert("Xuất ZIP thất bại.");
     }
-
-    const blob = await zip.generateAsync({ type: "blob" });
-    blobDownload(blob, `${filenameBase}__html+thumbnail.zip`);
   };
 
   // ===== 3) Export Zip - Without thumbnail (zip: html + /images) =====
   const exportZipNoThumb = async () => {
-    const html = getFullHtml(); // đã ẩn pre-header từ Wizard
-    if (!html || !html.trim()) return alert("HTML trống.");
-
-    // Viết lại src -> /images/*
-    const { newHtml, srcMap } = await rewriteHtmlToLocalImages(html);
-    const zip = new JSZip();
-    zip.file(`${filenameBase}.html`, newHtml);
-
-    // Tải toàn bộ ảnh & nhét vào /images
-    const addAll = Array.from(srcMap.entries()).map(
-      async ([oldSrc, newPath]) => {
-        const { data } = await fetchImageBinary(oldSrc);
-        zip.file(newPath, data);
-      }
-    );
     try {
-      await Promise.all(addAll);
+      const html = await getFullHtml();
+      if (!html || !html.trim()) return alert("HTML trống.");
+
+      // Viết lại src -> /images/*
+      const { newHtml, srcMap } = await rewriteHtmlToLocalImages(html);
+      const zip = new JSZip();
+      zip.file(`${filenameBase}.html`, newHtml);
+
+      // Tải toàn bộ ảnh & nhét vào /images
+      const addAll = Array.from(srcMap.entries()).map(
+        async ([oldSrc, newPath]) => {
+          const { data } = await fetchImageBinary(oldSrc);
+          zip.file(newPath, data);
+        }
+      );
+      try {
+        await Promise.all(addAll);
+      } catch (e) {
+        console.error(e);
+        return alert("Có ảnh không tải được. Kiểm tra lại kết nối/URL.");
+      }
+
+      const blob = await zip.generateAsync({ type: "blob" });
+      blobDownload(blob, `${filenameBase}__html+images.zip`);
     } catch (e) {
       console.error(e);
-      return alert("Có ảnh không tải được. Kiểm tra lại kết nối/URL.");
+      alert("Xuất ZIP thất bại.");
     }
-
-    const blob = await zip.generateAsync({ type: "blob" });
-    blobDownload(blob, `${filenameBase}__html+images.zip`);
   };
 
   // ===== 4) Export Zip - With thumbnail (zip: html + /images + thumbnail.jpg) =====
   const exportZipWithThumb = async () => {
-    const html = getFullHtml(); // đã ẩn pre-header từ Wizard
-    if (!html || !html.trim()) return alert("HTML trống.");
-    if (!thumbnailUrl)
-      return alert("Chưa có thumbnail. Hãy tạo/nhập thumbnail trước.");
-
-    const { newHtml, srcMap } = await rewriteHtmlToLocalImages(html);
-    const zip = new JSZip();
-    zip.file(`${filenameBase}.html`, newHtml);
-
-    // ảnh nội dung
-    const addImages = Array.from(srcMap.entries()).map(
-      async ([oldSrc, newPath]) => {
-        const { data } = await fetchImageBinary(oldSrc);
-        zip.file(newPath, data);
-      }
-    );
-
-    // thumbnail
-    const addThumb = (async () => {
-      const { data } = await fetchImageBinary(thumbnailUrl);
-      zip.file("thumbnail.jpg", data);
-    })();
-
     try {
-      await Promise.all([...addImages, addThumb]);
+      const html = await getFullHtml();
+      if (!html || !html.trim()) return alert("HTML trống.");
+      if (!thumbnailUrl)
+        return alert("Chưa có thumbnail. Hãy tạo/nhập thumbnail trước.");
+
+      const { newHtml, srcMap } = await rewriteHtmlToLocalImages(html);
+      const zip = new JSZip();
+      zip.file(`${filenameBase}.html`, newHtml);
+
+      // ảnh nội dung
+      const addImages = Array.from(srcMap.entries()).map(
+        async ([oldSrc, newPath]) => {
+          const { data } = await fetchImageBinary(oldSrc);
+          zip.file(newPath, data);
+        }
+      );
+
+      // thumbnail
+      const addThumb = (async () => {
+        const { data } = await fetchImageBinary(thumbnailUrl);
+        zip.file("thumbnail.jpg", data);
+      })();
+
+      try {
+        await Promise.all([...addImages, addThumb]);
+      } catch (e) {
+        console.error(e);
+        return alert("Tải ảnh/thumbnail thất bại.");
+      }
+
+      const blob = await zip.generateAsync({ type: "blob" });
+      blobDownload(blob, `${filenameBase}__html+images+thumbnail.zip`);
     } catch (e) {
       console.error(e);
-      return alert("Tải ảnh/thumbnail thất bại.");
+      alert("Xuất ZIP thất bại.");
     }
-
-    const blob = await zip.generateAsync({ type: "blob" });
-    blobDownload(blob, `${filenameBase}__html+images+thumbnail.zip`);
   };
 
   // ===== UI =====
@@ -206,7 +227,7 @@ export default function StepExport({
       <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
         {/* 1 */}
         <button
-          onClick={exportHtmlOnline}
+          onClick={() => void exportHtmlOnline()}
           type="button"
           className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
         >

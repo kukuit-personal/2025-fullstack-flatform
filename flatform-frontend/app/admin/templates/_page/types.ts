@@ -1,7 +1,7 @@
 // FE models + DTO từ API
 
-export type SortBy = 'updatedAt' | 'createdAt' | 'name' | 'price';
-export type SortDir = 'asc' | 'desc';
+export type SortBy = "updatedAt" | "createdAt" | "name" | "price";
+export type SortDir = "asc" | "desc";
 
 export type SearchParams = {
   page?: number;
@@ -9,9 +9,9 @@ export type SearchParams = {
   name?: string;
   tag?: string;
   // nếu cần nhiều tag: thêm tags?: string[]
-  customerId?: string;         // '' hoặc undefined => load all
-  statusIds?: number[];        // 🆕 lọc nhiều trạng thái (ví dụ [1,4,6])
-  createdFrom?: string;        // "YYYY-MM-DD" hoặc ISO
+  customerId?: string; // '' hoặc undefined => load all
+  statusIds?: number[]; // 🆕 lọc nhiều trạng thái (ví dụ [1,4,6])
+  createdFrom?: string; // "YYYY-MM-DD" hoặc ISO
   createdTo?: string;
   updatedFrom?: string;
   updatedTo?: string;
@@ -38,7 +38,7 @@ export type EmailTemplateDTO = {
   updatedAt: string;
 
   // (tuỳ API include)
-  statusId?: number | null;                      // 🆕
+  statusId?: number | null; // 🆕
   status?: { id: number; status: string } | null; // 🆕
 
   creator?: { id: string; email: string } | null;
@@ -61,6 +61,7 @@ export type EmailTemplate = {
   slug?: string | null;
   description?: string | null;
   thumbnailUrl?: string | null;
+  thumbnailUrlx600?: string | null;
   price?: number | null;
   currency?: string | null;
   createdAt: Date;

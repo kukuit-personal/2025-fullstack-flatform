@@ -19,13 +19,15 @@ function bust(u?: string | null, seed?: number) {
 }
 
 export default function StepThumbnail({
-  draftId,
-  getFullHtml,
+  draftId, // khi tạo mới (create)
+  templateId, // khi edit (ưu tiên templateId nếu có)
+  getFullHtml, // async: () => Promise<string>
   onSkip,
   apiBase,
 }: {
   draftId: string;
-  getFullHtml: () => string;
+  templateId?: string;
+  getFullHtml: () => Promise<string>;
   onSkip: () => void;
   apiBase?: string | null;
 }) {
@@ -79,28 +81,49 @@ export default function StepThumbnail({
     });
   }, [url200Form, url600Form, urlMainForm]);
 
-  // Nếu HTML đổi so với lần gen trước -> clear thumbnail
+  // Nếu HTML đổi so với lần gen trước -> clear thumbnail (chạy 1 lần khi vào step)
   useEffect(() => {
-    const currentHtml = getFullHtml() || "";
-    const currentSig = hashString(currentHtml);
-    const prevSig = getValues("thumbnailHtmlSig") as string | undefined | null;
-
-    if (prevSig && prevSig !== currentSig) {
-      // HTML đã đổi -> reset thumbnails
-      setValue("thumbnailUrl", null, { shouldDirty: true });
-      setValue("thumbnailUrl200", null, { shouldDirty: true });
-      setValue("thumbnailUrl600", null, { shouldDirty: true });
-      setUrls({ url200: undefined, url600: undefined });
-    }
-    // Không ghi đè sig ở đây; chỉ cập nhật sau khi Generate thành công
+    let mounted = true;
+    (async () => {
+      try {
+        const currentHtml = (await getFullHtml()) || "";
+        const currentSig = hashString(currentHtml);
+        const prevSig = getValues("thumbnailHtmlSig") as
+          | string
+          | undefined
+          | null;
+        if (mounted && prevSig && prevSig !== currentSig) {
+          // HTML đã đổi -> reset thumbnails
+          setValue("thumbnailUrl", null, { shouldDirty: true });
+          setValue("thumbnailUrl200", null, { shouldDirty: true });
+          setValue("thumbnailUrl600", null, { shouldDirty: true });
+          setUrls({ url200: undefined, url600: undefined });
+        }
+      } catch (e) {
+        // bỏ qua: không chặn UI
+        console.warn("[StepThumbnail] compare html signature error:", e);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // chỉ check một lần khi vào step
 
   const onGenerate = async () => {
     setLoading(true);
     try {
-      // HTML đã được ép ẩn pre-header từ TemplateWizard (getFullHtmlHidden)
-      const preparedHtml = getFullHtml();
+      // HTML đã được ép ẩn pre-header + inline CSS từ TemplateWizard
+      const preparedHtml = await getFullHtml();
+      if (!preparedHtml || !preparedHtml.trim()) {
+        alert("Editor chưa có nội dung. Vui lòng quay lại bước Editor.");
+        return;
+      }
+
+      // Ưu tiên templateId nếu có, nếu không thì dùng draftId
+      const payload: any = { html: preparedHtml };
+      if (templateId) payload.templateId = templateId;
+      else payload.draftId = draftId;
 
       const res = await fetch(
         `${
@@ -110,7 +133,7 @@ export default function StepThumbnail({
           method: "POST",
           headers: { "Content-Type": "application/json" },
           credentials: "include",
-          body: JSON.stringify({ html: preparedHtml, draftId }),
+          body: JSON.stringify(payload),
         }
       );
       if (!res.ok) {
@@ -118,7 +141,7 @@ export default function StepThumbnail({
         throw new Error(msg || "Generate thumbnails failed");
       }
       const json = await res.json();
-      // ✅ GIỮ NGUYÊN ABSOLUTE URL TỪ BE/DB (vd: http://localhost:3001/...)
+      // ✅ GIỮ NGUYÊN ABSOLUTE URL TỪ BE/DB (vd: http://localhost:3001/…)
       const url200Raw = (json.url_thumbnail as string) || undefined;
       const url600Raw = (json.url_thumbnailx600 as string) || undefined;
 
@@ -137,8 +160,8 @@ export default function StepThumbnail({
         url600: url600Raw ? bust(url600Raw, ts) : undefined,
       });
 
-      // Lưu chữ ký HTML tại thời điểm gen (dùng HTML gốc đã hidden để so lần sau)
-      const sig = hashString(getFullHtml() || "");
+      // Lưu chữ ký HTML tại thời điểm gen (dùng HTML đã inline+hidden)
+      const sig = hashString(preparedHtml || "");
       setValue("thumbnailHtmlSig", sig, { shouldDirty: false });
     } catch (e: any) {
       console.error("[thumbnail] preview error:", e);

@@ -12,17 +12,17 @@ import {
   createEmailTemplate,
   getEmailTemplate,
   updateEmailTemplate,
-} from "./service";
-import { CurrencyEnum } from "./constants";
-import { toCreatePayload } from "./adapter";
-import { NewTemplateForm, NewTemplateFormValues } from "./types";
+} from "../service";
+import { CurrencyEnum } from "../constants";
+import { toCreatePayload } from "../adapter";
+import { NewTemplateForm, NewTemplateFormValues } from "../types";
 
-import Stepper from "./components/Stepper";
-import StepEditor from "./steps/StepEditor";
-import StepInfo from "./steps/StepInfo";
-import StepThumbnail from "./steps/StepThumbnail";
-import StepReviewSave from "./steps/StepReviewSave";
-import StepExport from "./steps/StepExport";
+import Stepper from "../components/Stepper";
+import StepEditor from "../steps/StepEditor";
+import StepInfo from "../steps/StepInfo";
+import StepThumbnail from "../steps/StepThumbnail";
+import StepReviewSave from "../steps/StepReviewSave";
+import StepExport from "../steps/StepExport";
 
 export type UploadedImage = {
   url: string;
@@ -41,7 +41,6 @@ const STEP_TITLES = [
   "Export",
 ] as const;
 
-// ánh xạ tab -> step (để hỗ trợ ?reviewsave / ?export)
 const TAB_TO_STEP = {
   editor: 0,
   info: 1,
@@ -51,11 +50,13 @@ const TAB_TO_STEP = {
 } as const;
 type TabKey = keyof typeof TAB_TO_STEP;
 
-/** 🔒 Ẩn chắc chắn p#pre-header (idempotent) */
+/** Ẩn chắc chắn p#pre-header (idempotent) */
 function ensureHiddenPreheader(html: string): string {
   try {
     const hasHtmlTag = /<\s*html[\s>]/i.test(html);
-    const shell = hasHtmlTag ? html : `<!doctype html><html><body>${html}</body></html>`;
+    const shell = hasHtmlTag
+      ? html
+      : `<!doctype html><html><body>${html}</body></html>`;
     const doc = new DOMParser().parseFromString(shell, "text/html");
     const p = doc.getElementById("pre-header") as HTMLElement | null;
     if (p) {
@@ -63,11 +64,13 @@ function ensureHiddenPreheader(html: string): string {
         "display:none !important;visibility:hidden !important;opacity:0 !important;color:transparent !important;max-height:0 !important;max-width:0 !important;overflow:hidden !important;mso-hide:all !important;font-size:1px !important;line-height:1px !important;";
       p.setAttribute("style", `${p.getAttribute("style") || ""};${H}`);
       p.setAttribute("aria-hidden", "true");
-      // Gia cố cho <td> cha (đặc biệt Outlook)
       const td = p.closest("td") as HTMLElement | null;
-      if (td) td.setAttribute("style", `${td.getAttribute("style") || ""};mso-hide:all !important;`);
+      if (td)
+        td.setAttribute(
+          "style",
+          `${td.getAttribute("style") || ""};mso-hide:all !important;`
+        );
     }
-    // Trả lại đúng “dạng” như input
     return hasHtmlTag ? doc.documentElement.outerHTML : doc.body.innerHTML;
   } catch {
     return html;
@@ -75,17 +78,14 @@ function ensureHiddenPreheader(html: string): string {
 }
 
 export default function TemplateWizard({
-  // có templateId => edit mode
-  templateId = null,
-  // khởi tạo step theo tab truyền từ page.tsx (editor | info | thumbnail | reviewsave | export)
-  initialTab,
+  templateId = null, // có templateId => edit mode
+  initialTab, // (editor | info | thumbnail | reviewsave | export)
 }: {
   templateId?: string | null;
   initialTab?: TabKey;
 }) {
   const router = useRouter();
   const search = useSearchParams();
-
   const isEdit = !!templateId;
 
   // đọc tab từ URL (?reviewsave | ?export | ?tab=reviewsave)
@@ -95,7 +95,7 @@ export default function TemplateWizard({
       (tabParam && TAB_TO_STEP[tabParam as TabKey]) ||
       (search.has("reviewsave") ? TAB_TO_STEP.reviewsave : undefined) ||
       (search.has("export") ? TAB_TO_STEP.export : undefined);
-    return typeof knownTab === "number" ? knownTab : 0; // mặc định editor
+    return typeof knownTab === "number" ? knownTab : 0;
   }, [search]);
 
   // ưu tiên prop initialTab nếu có, không thì theo URL
@@ -105,12 +105,9 @@ export default function TemplateWizard({
   }, [initialTab, initialStepFromUrl]);
 
   const [step, setStep] = useState<number>(computedInitialStep); // 0..4
-  useEffect(() => {
-    // khi prop/URL thay đổi tab (nếu có), sync lại step
-    setStep(computedInitialStep);
-  }, [computedInitialStep]);
+  useEffect(() => setStep(computedInitialStep), [computedInitialStep]);
 
-  // 🔔 dùng để buộc Review/Export remount sau khi editor được đổ html
+  // buộc Review/Export remount sau khi editor được đổ html
   const [editorRefreshKey, setEditorRefreshKey] = useState(0);
 
   // Editor refs
@@ -137,32 +134,43 @@ export default function TemplateWizard({
   const { handleSubmit, formState, setValue, getValues, reset } = methods;
   const busy = formState.isSubmitting;
 
-  // =========================
-  // Helpers
-  // =========================
+  // ========================= Helpers =========================
+
+  /** Trả về tài liệu HTML đầy đủ (chưa inline), GIỮ id/class để inline chính xác */
   const getFullHtml = useCallback(() => {
     const ed = editorRef.current;
     if (!ed) return "";
 
-    // BỎ lấy CSS global: const css = ed.getCss();
-    // Chỉ lấy phần HTML (GrapesJS newsletter blocks đã inline sẵn)
-    const htmlBody = ed.getHtml({ cleanId: true });
+    const css = ed.getCss();
+    const htmlBody = ed.getHtml({ cleanId: false }); // GIỮ id/class
+
     return `<!doctype html>
       <html>
         <head>
           <meta charset="utf-8"/>
           <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
           <title>${getValues("name") || "Template"}</title>
+          ${css ? `<style>${css}</style>` : ""}
         </head>
         ${htmlBody}
       </html>`;
   }, [getValues]);
 
-  /** 🧩 Bản getFullHtml đã chuẩn hoá để luôn ẩn pre-header cho Thumbnail/Review/Export */
-  const getFullHtmlHidden = useCallback(() => {
-    return ensureHiddenPreheader(getFullHtml());
+  /** Bản sync: chỉ ẩn preheader (chưa inline). */
+  const getFullHtmlHiddenSync = useCallback(
+    () => ensureHiddenPreheader(getFullHtml()),
+    [getFullHtml]
+  );
+
+  /** Bản async: inline toàn bộ CSS rồi mới ẩn preheader. */
+  const getFullHtmlHiddenInlined = useCallback(async () => {
+    const { default: juice } = await import("juice");
+    const full = getFullHtml(); // có <style> cho inliner đọc
+    const inlined = juice(full); // chuyển về style=""
+    return ensureHiddenPreheader(inlined);
   }, [getFullHtml]);
 
+  /** Lấy metadata ảnh đã upload (dựa trên Map uploadedRef) */
   const extractImageMetas = useCallback(() => {
     const html = getFullHtml();
     if (!html) return [] as UploadedImage[];
@@ -199,25 +207,22 @@ export default function TemplateWizard({
     [parseFullHtml]
   );
 
-  // 🆕: nếu editor chưa sẵn sàng, retry vài lần rồi phát tín hiệu refresh
+  // nếu editor chưa sẵn sàng, retry
   const applyHtmlWithRetry = useCallback(
     (fullHtml: string, retries = 12) => {
       const ed = editorRef.current;
       if (ed) {
         applyServerHtmlToEditor(fullHtml);
-        setEditorRefreshKey((k) => k + 1); // force remount preview steps
+        setEditorRefreshKey((k) => k + 1);
         return;
       }
-      if (retries > 0) {
+      if (retries > 0)
         setTimeout(() => applyHtmlWithRetry(fullHtml, retries - 1), 150);
-      }
     },
     [applyServerHtmlToEditor]
   );
 
-  // =========================
-  // Edit-mode: fetch DB & hydrate
-  // =========================
+  // ========================= Edit-mode: fetch DB & hydrate =========================
   const { data: tmplData } = useQuery({
     queryKey: ["emailTemplate", templateId],
     queryFn: () => getEmailTemplate(templateId as string),
@@ -231,8 +236,7 @@ export default function TemplateWizard({
       slug: tmplData.slug ?? "",
       description: tmplData.description ?? "",
       price: Number(tmplData.price ?? 0),
-      currency:
-        (tmplData.currency as CurrencyEnum) ?? (defaultCurrency as any),
+      currency: (tmplData.currency as CurrencyEnum) ?? (defaultCurrency as any),
       hasImages: !!tmplData.hasImages,
       customerId: tmplData.customerId ?? null,
       thumbnailUrl: tmplData.urlThumbnail ?? null,
@@ -240,17 +244,13 @@ export default function TemplateWizard({
     if (tmplData.html) applyHtmlWithRetry(tmplData.html);
   }, [tmplData, reset, defaultCurrency, applyHtmlWithRetry]);
 
-  // =========================
-  // Mutations
-  // =========================
+  // ========================= Mutations =========================
   const { mutateAsync: createAsync, isPending: isCreating } = useMutation({
     mutationFn: createEmailTemplate,
     onSuccess: (res: any) => {
       toast.success("Đã lưu template");
       const finalHtml = res?.html ?? res?.data?.html ?? "";
       if (finalHtml) applyHtmlWithRetry(finalHtml);
-
-      // Redirect sang edit canonical: /admin/templates/:id/edit?reviewsave
       const id = res?.id ?? res?.data?.id;
       if (id) router.replace(`/admin/templates/${id}/edit?reviewsave`);
     },
@@ -269,14 +269,12 @@ export default function TemplateWizard({
     },
   });
 
-  // =========================
-  // Handlers
-  // =========================
+  // ========================= Handlers =========================
   const onCreate = useMemo(
     () =>
       handleSubmit(
         async (values) => {
-          const html = getFullHtmlHidden();
+          const html = await getFullHtmlHiddenInlined();
           if (!html || html.trim() === "") {
             setStep(0);
             toast.error(
@@ -298,7 +296,7 @@ export default function TemplateWizard({
           toast.error("Vui lòng điền đầy đủ các trường bắt buộc ở bước Info.");
         }
       ),
-    [extractImageMetas, getFullHtml, handleSubmit, createAsync]
+    [extractImageMetas, getFullHtmlHiddenInlined, handleSubmit, createAsync]
   );
 
   // Update (edit-mode): không dùng images/draftId
@@ -306,7 +304,7 @@ export default function TemplateWizard({
     () =>
       handleSubmit(
         async (values) => {
-          const html = getFullHtmlHidden();
+          const html = await getFullHtmlHiddenInlined();
           if (!html.trim()) {
             setStep(0);
             toast.error("Editor chưa có nội dung.");
@@ -320,7 +318,7 @@ export default function TemplateWizard({
           toast.error("Vui lòng điền đầy đủ các trường bắt buộc ở bước Info.");
         }
       ),
-    [getFullHtml, handleSubmit, updateAsync]
+    [getFullHtmlHiddenInlined, handleSubmit, updateAsync]
   );
 
   const setCurrency = (cur: CurrencyEnum) => {
@@ -333,7 +331,6 @@ export default function TemplateWizard({
   const canGoNext = step < STEP_TITLES.length - 1;
   const canGoBack = step > 0;
 
-  // Validate Step Info bằng toast (không alert)
   const next = async () => {
     if (!canGoNext) return;
     if (step === 1) {
@@ -407,12 +404,13 @@ export default function TemplateWizard({
 
       {/* Steps */}
       <FormProvider {...methods}>
-        {/* giữ editor luôn mounted để không mất html */}
         <div className={step === 0 ? "block" : "hidden"}>
           <StepEditor
             editorRef={editorRef}
             uploadedRef={uploadedRef}
             draftIdRef={draftIdRef}
+            templateId={templateId ?? undefined}
+            isEdit={isEdit}
           />
         </div>
 
@@ -421,8 +419,8 @@ export default function TemplateWizard({
         {step === 2 && (
           <StepThumbnail
             draftId={draftIdRef.current}
-            // ⬇️ dùng HTML đã ép ẩn pre-header
-            getFullHtml={getFullHtmlHidden}
+            templateId={templateId ?? undefined}
+            getFullHtml={getFullHtmlHiddenInlined}
             apiBase={process.env.NEXT_PUBLIC_API_BASE_URL ?? null}
             onSkip={next}
           />
@@ -430,9 +428,8 @@ export default function TemplateWizard({
 
         {step === 3 && (
           <StepReviewSave
-            key={editorRefreshKey} // ⬅️ remount để lấy lại HTML mới
-            // ⬇️ dùng HTML đã ép ẩn pre-header
-            getFullHtml={getFullHtmlHidden}
+            key={editorRefreshKey}
+            getFullHtml={getFullHtmlHiddenInlined}
             onSave={isEdit ? onUpdate : onCreate}
             isSaving={isCreating || isUpdating}
             saveLabel={isEdit ? "Update template" : "Create template"}
@@ -441,9 +438,8 @@ export default function TemplateWizard({
 
         {step === 4 && (
           <StepExport
-            key={editorRefreshKey} // ⬅️ remount khi editor thay đổi
-            // ⬇️ dùng HTML đã ép ẩn pre-header
-            getFullHtml={getFullHtmlHidden}
+            key={editorRefreshKey}
+            getFullHtml={getFullHtmlHiddenInlined}
             thumbnailUrl={methods.watch("thumbnailUrl") ?? null}
             filenameBase={methods.getValues("slug") || "template"}
           />

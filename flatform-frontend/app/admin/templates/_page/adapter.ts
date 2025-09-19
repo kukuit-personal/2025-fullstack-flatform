@@ -1,19 +1,21 @@
-import type { EmailTemplateDTO, EmailTemplate, SearchResult, SearchResponseDTO } from './types';
+import type {
+  EmailTemplateDTO,
+  EmailTemplate,
+  SearchResult,
+  SearchResponseDTO,
+} from "./types";
 
 export function adaptOne(dto: EmailTemplateDTO): EmailTemplate {
-  const priceNum = dto.price != null ? Number(dto.price as unknown as string) : null;
+  const priceNum =
+    dto.price != null ? Number(dto.price as unknown as string) : null;
 
   return {
     id: dto.id,
     name: dto.name,
     slug: dto.slug ?? null,
     description: dto.description ?? null,
-    thumbnailUrl:
-      dto.urlThumbnail ??
-      dto.urlThumbnailX600 ??
-      dto.url_thumbnail ?? // fallback khi call endpoint preview
-      dto.url_thumbnailx600 ??
-      null,
+    thumbnailUrl: dto.urlThumbnail ?? dto.url_thumbnail ?? null,
+    thumbnailUrlx600: dto.urlThumbnailX600 ?? dto.url_thumbnailx600 ?? null,
     price: Number.isFinite(priceNum) ? (priceNum as number) : null,
     currency: dto.currency ?? null,
     createdAt: new Date(dto.createdAt),

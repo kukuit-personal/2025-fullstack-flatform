@@ -1,13 +1,19 @@
 // Server Component (không cần "use client")
-import TemplateWizard from "../../new/TemplateWizard";
+import TemplateWizard from "../../new/ui/TemplateWizard";
 
 type Props = {
   params: { id: string };
   searchParams?: Record<string, string | string[] | undefined>;
 };
 
-const VALID_TABS = ["editor", "info", "thumbnail", "reviewsave", "export"] as const;
-type Tab = typeof VALID_TABS[number];
+const VALID_TABS = [
+  "editor",
+  "info",
+  "thumbnail",
+  "reviewsave",
+  "export",
+] as const;
+type Tab = (typeof VALID_TABS)[number];
 
 function pickInitialTab(sp?: Props["searchParams"]): Tab {
   if (!sp) return "editor";
