@@ -4,27 +4,48 @@ import { useEffect, useMemo, useState } from "react";
 import { useFormContext } from "react-hook-form";
 
 export default function StepReviewSave({
-  getFullHtml,
+  getFullHtml, // ⬅️ async: () => Promise<string>
   onSave,
   isSaving,
   saveLabel = "Create template",
-  refreshKey = 0, // 🆕 giúp re-compute khi editor được hydrate lại
+  refreshKey = 0,
 }: {
-  getFullHtml: () => string;
+  getFullHtml: () => Promise<string>;
   onSave: () => Promise<void> | void;
   isSaving?: boolean;
   saveLabel?: string;
-  refreshKey?: number; // 🆕 optional
+  refreshKey?: number;
 }) {
   const { getValues } = useFormContext();
   const v = getValues();
 
-  // Lưu ý: getFullHtml đã là bản "hidden pre-header" được Wizard bọc sẵn.
-  const html = useMemo(() => getFullHtml(), [getFullHtml, refreshKey]);
+  // HTML đã inline + ẩn preheader (fetch async từ Wizard)
+  const [html, setHtml] = useState<string>("");
 
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const h = await getFullHtml();
+        if (mounted) setHtml(h || "");
+      } catch (e) {
+        console.error("[StepReviewSave] getFullHtml error:", e);
+        if (mounted) setHtml("");
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, [getFullHtml, refreshKey]);
+
+  // Tạo preview URL từ HTML
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   useEffect(() => {
-    const blob = new Blob([html || ""], { type: "text/html" });
+    if (!html) {
+      setPreviewUrl(null);
+      return;
+    }
+    const blob = new Blob([html], { type: "text/html" });
     const url = URL.createObjectURL(blob);
     setPreviewUrl(url);
     return () => {
@@ -38,12 +59,14 @@ export default function StepReviewSave({
     try {
       await Promise.resolve(onSave());
     } catch {
-      // nuốt lỗi để không crash ui; toast đã xử lý ở nơi gọi
+      // nuốt lỗi để không crash UI; toast xử lý ở mutation
     }
   };
 
   const savingText =
     saveLabel === "Create template" ? "Creating template..." : "Updating...";
+
+  const htmlLength = useMemo(() => (html ? html.length : 0), [html]);
 
   return (
     <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
@@ -78,7 +101,7 @@ export default function StepReviewSave({
                 Rendered preview
               </div>
               <div className="text-xs text-gray-500">
-                HTML length: {html.length} chars
+                HTML length: {htmlLength} chars
               </div>
             </div>
             {previewUrl ? (
@@ -100,7 +123,8 @@ export default function StepReviewSave({
               <button
                 type="button"
                 onClick={() => navigator.clipboard.writeText(html)}
-                className="rounded-md border border-gray-300 bg-white px-2 py-1 text-xs text-gray-700 hover:bg-gray-50"
+                disabled={!html}
+                className="rounded-md border border-gray-300 bg-white px-2 py-1 text-xs text-gray-700 hover:bg-gray-50 disabled:opacity-50"
               >
                 Copy
               </button>

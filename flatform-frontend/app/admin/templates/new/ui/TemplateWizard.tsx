@@ -81,17 +81,14 @@ function ensureHiddenPreheader(html: string): string {
 }
 
 export default function TemplateWizard({
-  // có templateId => edit mode
-  templateId = null,
-  // khởi tạo step theo tab truyền từ page.tsx (editor | info | thumbnail | reviewsave | export)
-  initialTab,
+  templateId = null, // có templateId => edit mode
+  initialTab, // (editor | info | thumbnail | reviewsave | export)
 }: {
   templateId?: string | null;
   initialTab?: TabKey;
 }) {
   const router = useRouter();
   const search = useSearchParams();
-
   const isEdit = !!templateId;
 
   // đọc tab từ URL (?reviewsave | ?export | ?tab=reviewsave)
@@ -112,7 +109,6 @@ export default function TemplateWizard({
 
   const [step, setStep] = useState<number>(computedInitialStep); // 0..4
   useEffect(() => {
-    // khi prop/URL thay đổi tab (nếu có), sync lại step
     setStep(computedInitialStep);
   }, [computedInitialStep]);
 
@@ -146,29 +142,41 @@ export default function TemplateWizard({
   // =========================
   // Helpers
   // =========================
+
+  /** Trả về tài liệu HTML đầy đủ (chưa inline), GIỮ id/class để inline chính xác */
   const getFullHtml = useCallback(() => {
     const ed = editorRef.current;
     if (!ed) return "";
 
-    // BỎ lấy CSS global: const css = ed.getCss();
-    // Chỉ lấy phần HTML (GrapesJS newsletter blocks đã inline sẵn)
-    const htmlBody = ed.getHtml({ cleanId: true });
+    const css = ed.getCss(); // lấy toàn bộ CSS hiện có
+    const htmlBody = ed.getHtml({ cleanId: false }); // GIỮ id/class
+
     return `<!doctype html>
-      <html>
-        <head>
-          <meta charset="utf-8"/>
-          <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-          <title>${getValues("name") || "Template"}</title>
-        </head>
-        ${htmlBody}
-      </html>`;
+              <html>
+                <head>
+                  <meta charset="utf-8"/>
+                  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+                  <title>${getValues("name") || "Template"}</title>
+                  ${css ? `<style>${css}</style>` : ""}
+                </head>
+                ${htmlBody}
+              </html>`;
   }, [getValues]);
 
-  /** 🧩 Bản getFullHtml đã chuẩn hoá để luôn ẩn pre-header cho Thumbnail/Review/Export */
-  const getFullHtmlHidden = useCallback(() => {
+  /** Bản sync: chỉ ẩn preheader (chưa inline). Dùng khi cần tốc độ/preview nhanh. */
+  const getFullHtmlHiddenSync = useCallback(() => {
     return ensureHiddenPreheader(getFullHtml());
   }, [getFullHtml]);
 
+  /** Bản async: inline toàn bộ CSS rồi mới ẩn preheader. Dùng cho Thumbnail/Review/Export. */
+  const getFullHtmlHiddenInlined = useCallback(async () => {
+    const { default: juice } = await import("juice"); // gọi trong effect/handler, KHÔNG trong render
+    const full = getFullHtml(); // có <style> cho inliner đọc
+    const inlined = juice(full); // chuyển về style=""
+    return ensureHiddenPreheader(inlined);
+  }, [getFullHtml]);
+
+  /** Lấy metadata ảnh đã upload (dựa trên Map uploadedRef) */
   const extractImageMetas = useCallback(() => {
     const html = getFullHtml();
     if (!html) return [] as UploadedImage[];
@@ -281,7 +289,8 @@ export default function TemplateWizard({
     () =>
       handleSubmit(
         async (values) => {
-          const html = getFullHtmlHidden();
+          // dùng bản đã inline + ẩn preheader để lưu
+          const html = await getFullHtmlHiddenInlined();
           if (!html || html.trim() === "") {
             setStep(0);
             toast.error(
@@ -303,7 +312,7 @@ export default function TemplateWizard({
           toast.error("Vui lòng điền đầy đủ các trường bắt buộc ở bước Info.");
         }
       ),
-    [extractImageMetas, getFullHtml, handleSubmit, createAsync]
+    [extractImageMetas, getFullHtmlHiddenInlined, handleSubmit, createAsync]
   );
 
   // Update (edit-mode): không dùng images/draftId
@@ -311,7 +320,7 @@ export default function TemplateWizard({
     () =>
       handleSubmit(
         async (values) => {
-          const html = getFullHtmlHidden();
+          const html = await getFullHtmlHiddenInlined();
           if (!html.trim()) {
             setStep(0);
             toast.error("Editor chưa có nội dung.");
@@ -325,7 +334,7 @@ export default function TemplateWizard({
           toast.error("Vui lòng điền đầy đủ các trường bắt buộc ở bước Info.");
         }
       ),
-    [getFullHtml, handleSubmit, updateAsync]
+    [getFullHtmlHiddenInlined, handleSubmit, updateAsync]
   );
 
   const setCurrency = (cur: CurrencyEnum) => {
@@ -426,8 +435,8 @@ export default function TemplateWizard({
         {step === 2 && (
           <StepThumbnail
             draftId={draftIdRef.current}
-            // ⬇️ dùng HTML đã ép ẩn pre-header
-            getFullHtml={getFullHtmlHidden}
+            // ✅ TRUYỀN HÀM ASYNC: StepThumbnail nên gọi trong useEffect và set vào state
+            getFullHtml={getFullHtmlHiddenInlined}
             apiBase={process.env.NEXT_PUBLIC_API_BASE_URL ?? null}
             onSkip={next}
           />
@@ -435,9 +444,9 @@ export default function TemplateWizard({
 
         {step === 3 && (
           <StepReviewSave
-            key={editorRefreshKey} // ⬅️ remount để lấy lại HTML mới
-            // ⬇️ dùng HTML đã ép ẩn pre-header
-            getFullHtml={getFullHtmlHidden}
+            key={editorRefreshKey} // remount để lấy lại HTML mới
+            // ✅ TRUYỀN HÀM ASYNC: StepReviewSave gọi trong useEffect để render srcDoc
+            getFullHtml={getFullHtmlHiddenInlined}
             onSave={isEdit ? onUpdate : onCreate}
             isSaving={isCreating || isUpdating}
             saveLabel={isEdit ? "Update template" : "Create template"}
@@ -446,9 +455,9 @@ export default function TemplateWizard({
 
         {step === 4 && (
           <StepExport
-            key={editorRefreshKey} // ⬅️ remount khi editor thay đổi
-            // ⬇️ dùng HTML đã ép ẩn pre-header
-            getFullHtml={getFullHtmlHidden}
+            key={editorRefreshKey} // remount khi editor thay đổi
+            // ✅ TRUYỀN HÀM ASYNC
+            getFullHtml={getFullHtmlHiddenInlined}
             thumbnailUrl={methods.watch("thumbnailUrl") ?? null}
             filenameBase={methods.getValues("slug") || "template"}
           />
