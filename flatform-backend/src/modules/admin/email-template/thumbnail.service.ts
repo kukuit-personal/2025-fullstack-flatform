@@ -1,14 +1,19 @@
 // src/modules/admin/email-template/thumbnail.service.ts
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import puppeteer from 'puppeteer';
 
-// ⛔️ Đừng import 'sharp' ở top-level nữa – dùng dynamic import bên dưới
+// ⛔️ Sharp: dynamic import bên dưới để tránh lỗi ESM/CJS
+type Scope = { kind: 'template'; id: string } | { kind: 'draft'; id: string };
 
 @Injectable()
 export class ThumbnailService {
-  private storageRoot = path.resolve(process.cwd(), 'storage');
+  // Cho phép override qua env, mặc định 'storage'
+  private storageRoot = path.resolve(
+    process.cwd(),
+    process.env.STORAGE_DIR ?? 'storage',
+  );
 
   private async ensureDir(p: string) {
     await fs.mkdir(p, { recursive: true });
@@ -21,25 +26,39 @@ export class ThumbnailService {
       return false;
     }
   }
-  // Load sharp theo kiểu ESM/CJS-agnostic
   private async loadSharp() {
     const mod: any = await import('sharp');
     return mod?.default ?? mod;
   }
 
+  /** Tính đường dẫn tuyệt đối + URL public theo scope */
+  private resolveBase(scope: Scope) {
+    const seg = scope.kind === 'template' ? 'templates' : 'tmp';
+    const absDir = path.join(this.storageRoot, seg, scope.id);
+    const baseUrl =
+      process.env.PUBLIC_BASE_URL || process.env.APP_BASE_URL || '';
+    const pubBase = `${baseUrl}/storage/${seg}/${scope.id}`;
+    return { absDir, pubBase };
+  }
+
   /**
-   * Render HTML → tạo /storage/tmp/<draftId>/{thumbnail.jpg, thumbnailx600.jpg}
-   * Trả về URL tạm (serve /storage).
+   * Render HTML → tạo thumbnail 200/600 theo scope (draft/template).
+   * Trả về URL public (serve /storage) + đường dẫn tuyệt đối (nếu cần).
    */
-  async generatePreviewFromHtml(html: string, draftId: string) {
-    const tmpDir = path.join(this.storageRoot, 'tmp', draftId);
-    await this.ensureDir(tmpDir);
+  async generatePreviewFromHtml(args: { html: string; scope: Scope }) {
+    const { html, scope } = args;
+    if (!html?.trim()) throw new BadRequestException('html is required');
+
+    const { absDir, pubBase } = this.resolveBase(scope);
+    await this.ensureDir(absDir);
 
     const browser = await puppeteer.launch({
       args: ['--no-sandbox', '--disable-setuid-sandbox'],
     });
+
     try {
       const page = await browser.newPage();
+      // Viewport 600 để chụp khung chuẩn email
       await page.setViewport({ width: 600, height: 800, deviceScaleFactor: 1 });
       await page.setContent(html, { waitUntil: 'networkidle0' });
 
@@ -55,17 +74,15 @@ export class ThumbnailService {
         .jpeg({ quality: 82 })
         .toBuffer();
 
-      const p600 = path.join(tmpDir, 'thumbnailx600.jpg');
-      const p200 = path.join(tmpDir, 'thumbnail.jpg');
+      // Giữ nguyên tên file để FE dễ replace + có cache-buster v=...
+      const p600 = path.join(absDir, 'thumbnailx600.jpg');
+      const p200 = path.join(absDir, 'thumbnail.jpg');
       await fs.writeFile(p600, jpg600);
       await fs.writeFile(p200, jpg200);
 
-      const baseUrl =
-        process.env.PUBLIC_BASE_URL || process.env.APP_BASE_URL || '';
-
       return {
-        url200: `${baseUrl}/storage/tmp/${draftId}/thumbnail.jpg`,
-        url600: `${baseUrl}/storage/tmp/${draftId}/thumbnailx600.jpg`,
+        url200: `${pubBase}/thumbnail.jpg`,
+        url600: `${pubBase}/thumbnailx600.jpg`,
         abs200: p200,
         abs600: p600,
       };
@@ -75,8 +92,8 @@ export class ThumbnailService {
   }
 
   /**
-   * Copy từ /storage/tmp/<draftId>/… → /storage/templates/<templateId>/…
-   * Trả về URL final để lưu DB.
+   * (Tùy chọn) Promote ảnh từ draft → template:
+   * Copy /storage/tmp/<draftId>/thumbnail*.jpg → /storage/templates/<templateId>/
    */
   async finalizeForTemplateId(draftId: string, templateId: string) {
     const fromDir = path.join(this.storageRoot, 'tmp', draftId);

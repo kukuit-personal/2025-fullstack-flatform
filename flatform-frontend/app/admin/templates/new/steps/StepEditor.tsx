@@ -14,6 +14,8 @@ export default function StepEditor({
   editorRef,
   uploadedRef,
   draftIdRef,
+  templateId, // ⬅️ truyền thẳng templateId (edit); create thì undefined
+  isEdit = false,
   uploadProvider,
   apiBase,
   onReady,
@@ -21,6 +23,8 @@ export default function StepEditor({
   editorRef: React.MutableRefObject<any>;
   uploadedRef: React.MutableRefObject<Map<string, any>>;
   draftIdRef: React.MutableRefObject<string>;
+  templateId?: string; // ⬅️ NEW: thay cho storageKey
+  isEdit?: boolean;
   uploadProvider?: UploadProvider;
   apiBase?: string | null;
   onReady?: () => void;
@@ -34,12 +38,18 @@ export default function StepEditor({
     (async () => {
       if (!mounted || !containerRef.current) return;
 
+      // debug nhanh: đảm bảo templateId có mặt khi init
+      console.debug("[StepEditor] init editor with templateId =", templateId);
+
       const editor = await initEmailGrapesEditor({
         container: containerRef.current,
-        draftId: draftIdRef.current,
+        draftId: draftIdRef.current, // dùng khi create
+        templateId, // ⬅️ ưu tiên khi edit
+        isEdit,
         uploadedMap: uploadedRef.current,
         uploadProvider,
-        apiBaseUrl: apiBase ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? undefined,
+        apiBaseUrl:
+          apiBase ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? undefined,
         height: "calc(100vh - 50px)",
         keepPresetBlocks: true,
         categories: {
@@ -50,15 +60,9 @@ export default function StepEditor({
         },
       });
 
-      const {
-        ensurePreHeaderComp,
-        ensurePreHeaderDOM,
-        setPreHeaderTextModel,
-        readPreHeaderText,
-        isPreHeaderComp,
-      } = createPreheaderHelpers(editor);
+      const { setPreHeaderTextModel, readPreHeaderText, isPreHeaderComp } =
+        createPreheaderHelpers(editor);
 
-      // Sync input when #pre-header changes
       const syncInputFromEditor = () => setPreHeader(readPreHeaderText());
 
       const onCompAddOrUpdate = (m: any) => {
@@ -72,7 +76,6 @@ export default function StepEditor({
       editor.on("component:update", onCompAddOrUpdate);
       editor.on("component:remove", onCompRemove);
 
-      // Initial read on load
       editor.on("load", () => {
         try {
           syncInputFromEditor();
@@ -91,18 +94,30 @@ export default function StepEditor({
       editorRef.current = editor;
       onReady?.();
 
-      // sync once if state already has value
+      // nếu state preHeader đã có, đẩy vào model ngay sau khi init
       if (preHeader) setPreHeaderTextModel(preHeader);
     })();
 
     return () => {
       mounted = false;
-      editorRef.current?.destroy?.();
+      try {
+        editorRef.current?.destroy?.();
+      } catch {}
       editorRef.current = null;
     };
-  }, [editorRef, uploadedRef, draftIdRef, uploadProvider, apiBase, onReady]);
+    // ⚠️ Không đưa `preHeader` vào deps để tránh re-init mỗi lần gõ chữ
+  }, [
+    editorRef,
+    uploadedRef,
+    draftIdRef,
+    templateId, // ⬅️ khi templateId thay đổi (create → edit), re-init để uploader trỏ đúng đích
+    isEdit,
+    uploadProvider,
+    apiBase,
+    onReady,
+  ]);
 
-  // Input -> update MODEL (giữ logic cũ, có fallback DOM)
+  // Input → update model (có fallback DOM)
   const onChangePreHeader = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value || "";
     setPreHeader(val);
@@ -151,7 +166,9 @@ export default function StepEditor({
               className="flex-1 rounded-md border px-3 py-1.5 text-sm"
               maxLength={180}
             />
-            <span className="text-[11px] text-gray-500">{preHeader.length}/180</span>
+            <span className="text-[11px] text-gray-500">
+              {preHeader.length}/180
+            </span>
           </label>
         </div>
       </div>

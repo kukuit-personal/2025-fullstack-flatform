@@ -14,6 +14,7 @@ import {
   DefaultValuePipe,
   ParseIntPipe,
   Patch,
+  BadRequestException,
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
@@ -33,6 +34,7 @@ import { CreateEmailTemplateDto } from './dto/create-email-template.dto';
 import { UpdateEmailTemplateDto } from './dto/update-email-template.dto';
 import { ThumbnailService } from './thumbnail.service';
 import { SearchEmailTemplatesDto } from './dto/search-email-templates.dto';
+import { PreviewThumbnailDto } from './dto/preview-thumbnail.dto';
 
 @ApiTags('Email Templates (Admin)')
 @ApiBearerAuth()
@@ -50,21 +52,28 @@ export class EmailTemplateAdminController {
   @Roles('admin')
   @Post('thumbnail/preview')
   @ApiOperation({ summary: 'Generate thumbnail preview from HTML (admin)' })
-  @ApiBody({
-    schema: {
-      type: 'object',
-      properties: {
-        html: { type: 'string' },
-        draftId: { type: 'string' },
-      },
-      required: ['html', 'draftId'],
-    },
-  })
-  async generatePreview(@Body() body: { html: string; draftId: string }) {
-    const { url200, url600 } = await this.thumbs.generatePreviewFromHtml(
-      body.html,
-      body.draftId,
-    );
+  @ApiBody({ type: PreviewThumbnailDto })
+  async generatePreview(@Body() body: PreviewThumbnailDto) {
+    const { html, templateId, draftId } = body;
+    if (!html?.trim()) throw new BadRequestException('html is required');
+
+    // Ưu tiên templateId > draftId
+    const scope = templateId?.trim()
+      ? { kind: 'template' as const, id: templateId.trim() }
+      : draftId?.trim()
+        ? { kind: 'draft' as const, id: draftId.trim() }
+        : null;
+
+    if (!scope) {
+      throw new BadRequestException('Provide templateId or draftId');
+    }
+
+    // Service giờ nhận {html, scope}
+    const { url200, url600 } = await this.thumbs.generatePreviewFromHtml({
+      html,
+      scope, // { kind: 'template' | 'draft', id: string }
+    });
+
     return { url_thumbnail: url200, url_thumbnailx600: url600 };
   }
 
@@ -87,7 +96,9 @@ export class EmailTemplateAdminController {
   // --------------------------
   @Roles('admin')
   @Get()
-  @ApiOperation({ summary: 'Get email templates (search/paginate/filter) - admin' })
+  @ApiOperation({
+    summary: 'Get email templates (search/paginate/filter) - admin',
+  })
   @ApiResponse({ status: 200, description: 'List with pagination' })
   async findAll(@Req() req: any, @Query() query: SearchEmailTemplatesDto) {
     return this.service.search(req.user, query);

@@ -19,12 +19,14 @@ function bust(u?: string | null, seed?: number) {
 }
 
 export default function StepThumbnail({
-  draftId,
-  getFullHtml, // ⬅️ async: () => Promise<string>
+  draftId, // khi tạo mới (create)
+  templateId, // khi edit (ưu tiên templateId nếu có)
+  getFullHtml, // async: () => Promise<string>
   onSkip,
   apiBase,
 }: {
   draftId: string;
+  templateId?: string;
   getFullHtml: () => Promise<string>;
   onSkip: () => void;
   apiBase?: string | null;
@@ -118,6 +120,11 @@ export default function StepThumbnail({
         return;
       }
 
+      // Ưu tiên templateId nếu có, nếu không thì dùng draftId
+      const payload: any = { html: preparedHtml };
+      if (templateId) payload.templateId = templateId;
+      else payload.draftId = draftId;
+
       const res = await fetch(
         `${
           apiBase ?? process.env.NEXT_PUBLIC_API_BASE_URL
@@ -126,7 +133,7 @@ export default function StepThumbnail({
           method: "POST",
           headers: { "Content-Type": "application/json" },
           credentials: "include",
-          body: JSON.stringify({ html: preparedHtml, draftId }),
+          body: JSON.stringify(payload),
         }
       );
       if (!res.ok) {
@@ -134,7 +141,7 @@ export default function StepThumbnail({
         throw new Error(msg || "Generate thumbnails failed");
       }
       const json = await res.json();
-      // ✅ GIỮ NGUYÊN ABSOLUTE URL TỪ BE/DB (vd: http://localhost:3001/...)
+      // ✅ GIỮ NGUYÊN ABSOLUTE URL TỪ BE/DB (vd: http://localhost:3001/…)
       const url200Raw = (json.url_thumbnail as string) || undefined;
       const url600Raw = (json.url_thumbnailx600 as string) || undefined;
 
