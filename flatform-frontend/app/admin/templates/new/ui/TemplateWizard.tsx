@@ -129,6 +129,9 @@ export default function TemplateWizard({
       hasImages: true,
       customerId: null,
       thumbnailUrl: null,
+      thumbnailUrl200: null,
+      thumbnailUrl600: null,
+      thumbnailHtmlSig: null,
     },
   });
   const { handleSubmit, formState, setValue, getValues, reset } = methods;
@@ -240,6 +243,9 @@ export default function TemplateWizard({
       hasImages: !!tmplData.hasImages,
       customerId: tmplData.customerId ?? null,
       thumbnailUrl: tmplData.urlThumbnail ?? null,
+      thumbnailUrl200: tmplData.urlThumbnail ?? null,
+      thumbnailUrl600: tmplData.urlThumbnailX600 ?? null,
+      thumbnailHtmlSig: null,
     });
     if (tmplData.html) applyHtmlWithRetry(tmplData.html);
   }, [tmplData, reset, defaultCurrency, applyHtmlWithRetry]);
@@ -266,6 +272,15 @@ export default function TemplateWizard({
     onSuccess: (res: any) => {
       toast.success("Đã cập nhật template");
       if (res?.html) applyHtmlWithRetry(res.html);
+
+      // ✅ CẬP NHẬT LẠI FORM TỪ RESPONSE
+      const url200 = res?.urlThumbnail ?? null;
+      const url600 = res?.urlThumbnailX600 ?? null;
+      const main = url600 ?? url200 ?? null;
+
+      methods.setValue("thumbnailUrl200", url200, { shouldDirty: false });
+      methods.setValue("thumbnailUrl600", url600, { shouldDirty: false });
+      methods.setValue("thumbnailUrl", main, { shouldDirty: false });
     },
   });
 
