@@ -155,30 +155,61 @@ async function moveDraftThumbnails(
   const src200 = path.join(srcDir, 'thumbnail.jpg');
   const src600 = path.join(srcDir, 'thumbnailx600.jpg');
 
-  // Đích
+  // fallback paths
+  const fallbackDir = path.join(
+    process.cwd(),
+    STORAGE_DIR,
+    'templates',
+    'no-thumbnail',
+  );
+  const fb200 = path.join(fallbackDir, 'thumbnail.jpg');
+  const fb600 = path.join(fallbackDir, 'thumbnailx600.jpg');
+
+  // destination paths
   const dst200 = path.join(dstDir, 'thumbnail.jpg');
   const dst600 = path.join(dstDir, 'thumbnailx600.jpg');
 
   const out: { url200?: string; url600?: string } = {};
 
+  // ---- thumbnail 200 ----
   if (await pathExists(src200)) {
     await safeRenameOrCopy(src200, dst200);
     out.url200 = `${PUBLIC_BASE}/assets/templates/${templateId}/thumbnail.jpg`;
+  } else if (await pathExists(fb200)) {
+    await fsp.copyFile(fb200, dst200);
+    out.url200 = `${PUBLIC_BASE}/assets/templates/${templateId}/thumbnail.jpg`;
   }
+
+  // ---- thumbnail 600 ----
   if (await pathExists(src600)) {
     await safeRenameOrCopy(src600, dst600);
     out.url600 = `${PUBLIC_BASE}/assets/templates/${templateId}/thumbnailx600.jpg`;
+  } else if (await pathExists(fb600)) {
+    await fsp.copyFile(fb600, dst600);
+    out.url600 = `${PUBLIC_BASE}/assets/templates/${templateId}/thumbnailx600.jpg`;
+  }
+
+  // ---- cleanup tmp/<draftId> nếu đã move/copy ít nhất 1 file ----
+  if (out.url200 || out.url600) {
+    try {
+      await fsp.rm(srcDir, { recursive: true, force: true });
+    } catch {
+      // ignore cleanup errors
+    }
   }
 
   return out;
 }
 
 // 🆕 Cheerio-based rewrite: ưu tiên urlMap (old→new), fallback theo prefix tmp → templates
-function rewriteHtmlImgSrcWithCheerio(html: string, params: {
-  draftId?: string | null;
-  templateId: string;
-  urlMap?: Map<string, string>;
-}) {
+function rewriteHtmlImgSrcWithCheerio(
+  html: string,
+  params: {
+    draftId?: string | null;
+    templateId: string;
+    urlMap?: Map<string, string>;
+  },
+) {
   const { draftId, templateId, urlMap } = params;
   const $ = cheerio.load(html);
 
@@ -455,7 +486,7 @@ export class EmailTemplateService {
             });
           }
         }
-        tmpl.html = finalHtml; 
+        tmpl.html = finalHtml;
         return tmpl;
       });
     } catch (e) {
@@ -466,103 +497,111 @@ export class EmailTemplateService {
   // =========================
   // Search / List
   // =========================
-  async search(actor: { id: string; role?: string }, query: SearchEmailTemplatesDto) {
-  const page = Number(query.page) || 1;
-  const limit = Number(query.limit) || 12;
-  const skip = (page - 1) * limit;
+  async search(
+    actor: { id: string; role?: string },
+    query: SearchEmailTemplatesDto,
+  ) {
+    const page = Number(query.page) || 1;
+    const limit = Number(query.limit) || 12;
+    const skip = (page - 1) * limit;
 
-  const toEndOfDay = (iso?: string) => {
-    if (!iso) return undefined;
-    const d = new Date(iso);
-    if (Number.isNaN(d.getTime())) return undefined;
-    d.setHours(23, 59, 59, 999);
-    return d;
-  };
+    const toEndOfDay = (iso?: string) => {
+      if (!iso) return undefined;
+      const d = new Date(iso);
+      if (Number.isNaN(d.getTime())) return undefined;
+      d.setHours(23, 59, 59, 999);
+      return d;
+    };
 
-  // gom single -> many để xử lý chung
-  const statusIds =
-    (query.statusIds && query.statusIds.length ? query.statusIds : undefined) ??
-    (typeof query.statusId === 'number' && Number.isFinite(query.statusId)
-      ? [query.statusId]
-      : undefined);
+    // gom single -> many để xử lý chung
+    const statusIds =
+      (query.statusIds && query.statusIds.length
+        ? query.statusIds
+        : undefined) ??
+      (typeof query.statusId === 'number' && Number.isFinite(query.statusId)
+        ? [query.statusId]
+        : undefined);
 
-  // 1) điều kiện gốc
-  const baseWhere: Prisma.EmailTemplateWhereInput = {
-    ...(query.name && { name: { contains: query.name } }),
-    ...(query.customerId && { customerId: query.customerId }),
-    ...(statusIds && { statusId: { in: statusIds } }), // 🆕 many statuses
-  };
+    // 1) điều kiện gốc
+    const baseWhere: Prisma.EmailTemplateWhereInput = {
+      ...(query.name && { name: { contains: query.name } }),
+      ...(query.customerId && { customerId: query.customerId }),
+      ...(statusIds && { statusId: { in: statusIds } }), // 🆕 many statuses
+    };
 
-  // 2) điều kiện bổ sung
-  const and: Prisma.EmailTemplateWhereInput[] = [];
+    // 2) điều kiện bổ sung
+    const and: Prisma.EmailTemplateWhereInput[] = [];
 
-  // tag (đơn)
-  if (query.tag) {
-    and.push({
-      tags: { some: { tag: { name: { contains: query.tag } } } },
-    });
+    // tag (đơn)
+    if (query.tag) {
+      and.push({
+        tags: { some: { tag: { name: { contains: query.tag } } } },
+      });
+    }
+
+    // tags (nhiều) – ANY OF
+    if (query.tags?.length) {
+      and.push({
+        tags: { some: { tag: { name: { in: query.tags } } } },
+      });
+    }
+
+    // createdAt range
+    const createdFrom = query.createdFrom
+      ? new Date(query.createdFrom)
+      : undefined;
+    const createdTo = toEndOfDay(query.createdTo);
+    if (createdFrom || createdTo) {
+      and.push({
+        createdAt: {
+          ...(createdFrom && { gte: createdFrom }),
+          ...(createdTo && { lte: createdTo }),
+        },
+      });
+    }
+
+    // updatedAt range
+    const updatedFrom = query.updatedFrom
+      ? new Date(query.updatedFrom)
+      : undefined;
+    const updatedTo = toEndOfDay(query.updatedTo);
+    if (updatedFrom || updatedTo) {
+      and.push({
+        updatedAt: {
+          ...(updatedFrom && { gte: updatedFrom }),
+          ...(updatedTo && { lte: updatedTo }),
+        },
+      });
+    }
+
+    // 3) gộp access-control
+    const where: Prisma.EmailTemplateWhereInput = this.isAdmin(actor)
+      ? and.length
+        ? { AND: [baseWhere, ...and] }
+        : baseWhere
+      : { AND: [baseWhere, ...and, this.accessWhere(actor)] };
+
+    // 4) sort + query
+    const sortBy = query.sortBy ?? 'updatedAt';
+    const sortDir = query.sortDir ?? 'desc';
+
+    const [total, data] = await this.prisma.$transaction([
+      this.prisma.emailTemplate.count({ where }),
+      this.prisma.emailTemplate.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { [sortBy]: sortDir },
+        include: {
+          creator: { select: { id: true, email: true } },
+          tags: { include: { tag: true } },
+          customer: { select: { id: true, name: true, email: true } },
+        },
+      }),
+    ]);
+
+    return { data, page, limit, total, totalPages: Math.ceil(total / limit) };
   }
-
-  // tags (nhiều) – ANY OF
-  if (query.tags?.length) {
-    and.push({
-      tags: { some: { tag: { name: { in: query.tags } } } },
-    });
-  }
-
-  // createdAt range
-  const createdFrom = query.createdFrom ? new Date(query.createdFrom) : undefined;
-  const createdTo = toEndOfDay(query.createdTo);
-  if (createdFrom || createdTo) {
-    and.push({
-      createdAt: {
-        ...(createdFrom && { gte: createdFrom }),
-        ...(createdTo && { lte: createdTo }),
-      },
-    });
-  }
-
-  // updatedAt range
-  const updatedFrom = query.updatedFrom ? new Date(query.updatedFrom) : undefined;
-  const updatedTo = toEndOfDay(query.updatedTo);
-  if (updatedFrom || updatedTo) {
-    and.push({
-      updatedAt: {
-        ...(updatedFrom && { gte: updatedFrom }),
-        ...(updatedTo && { lte: updatedTo }),
-      },
-    });
-  }
-
-  // 3) gộp access-control
-  const where: Prisma.EmailTemplateWhereInput = this.isAdmin(actor)
-    ? and.length ? { AND: [baseWhere, ...and] } : baseWhere
-    : { AND: [baseWhere, ...and, this.accessWhere(actor)] };
-
-  // 4) sort + query
-  const sortBy = query.sortBy ?? 'updatedAt';
-  const sortDir = query.sortDir ?? 'desc';
-
-  const [total, data] = await this.prisma.$transaction([
-    this.prisma.emailTemplate.count({ where }),
-    this.prisma.emailTemplate.findMany({
-      where,
-      skip,
-      take: limit,
-      orderBy: { [sortBy]: sortDir },
-      include: {
-        creator: { select: { id: true, email: true } },
-        tags: { include: { tag: true } },
-        customer: { select: { id: true, name: true, email: true } },
-      },
-    }),
-  ]);
-
-  return { data, page, limit, total, totalPages: Math.ceil(total / limit) };
-}
-
-
-
 
   // =========================
   // Get one
@@ -586,7 +625,8 @@ export class EmailTemplateService {
   // =========================
   async update(actor: Actor, id: string, dto: UpdateEmailTemplateDto) {
     const tmpl = await this.prisma.emailTemplate.findUnique({
-      where: { id }, include: { shares: true },
+      where: { id },
+      include: { shares: true },
     });
     if (!tmpl) throw new NotFoundException('Template not found');
     this.ensureCanEditTemplate(actor, tmpl);
