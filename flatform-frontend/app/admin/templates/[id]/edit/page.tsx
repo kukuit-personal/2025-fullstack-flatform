@@ -1,5 +1,5 @@
 // Server Component (không cần "use client")
-import TemplateWizard from "../../new/ui/TemplateWizard";
+import TemplateWizard from "../../new/ui/_templatewizard";
 
 type Props = {
   params: { id: string };
