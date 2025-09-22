@@ -21,6 +21,43 @@ export function useEmailTemplateHtml(
   uploadedRef: RefObject<Map<string, UploadedImage>>,
   setEditorRefreshKey: (u: (k: number) => number) => void
 ) {
+  function normalizeComponentStyles(ed: any) {
+    const root = ed.DomComponents.getWrapper();
+    // normalize wrapper + all descendants
+    [root, ...root.find("*")].forEach((cmp: any) => {
+      const style = { ...(cmp.getStyle?.() || {}) };
+      let changed = false;
+
+      for (const key of Object.keys(style)) {
+        const v = (style as any)[key];
+        // Chuẩn hoá sang string; xoá null/undefined
+        if (v == null) {
+          delete (style as any)[key];
+          changed = true;
+          continue;
+        }
+        if (typeof v !== "string") {
+          (style as any)[key] = String(v);
+          changed = true;
+        }
+        // trim an toàn
+        if (typeof (style as any)[key] === "string") {
+          (style as any)[key] = (style as any)[key].trim();
+        }
+      }
+
+      // special-case: display "0" → "none" (hay gặp ở HTML lỗi)
+      if (style.display && style.display === "0") {
+        style.display = "none";
+        changed = true;
+      }
+
+      if (changed) {
+        cmp.setStyle(style);
+      }
+    });
+  }
+
   /** Trả về tài liệu HTML đầy đủ (chưa inline), GIỮ id/class để inline chính xác */
   const getFullHtml = useCallback(() => {
     const ed = editorRef.current;
@@ -83,6 +120,9 @@ export function useEmailTemplateHtml(
       const { css, body } = parseFullHtml(fullHtml);
       ed.setStyle(css || "");
       ed.setComponents(body || "");
+      setTimeout(() => {
+        normalizeComponentStyles(ed);
+      }, 0);
     },
     [editorRef]
   );

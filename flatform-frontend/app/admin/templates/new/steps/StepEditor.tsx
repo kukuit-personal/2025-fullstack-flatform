@@ -10,6 +10,59 @@ import {
   type UploadProvider,
 } from "./grapes-editor";
 
+/** Chuẩn hoá style của 1 component: mọi giá trị -> string đã trim; xoá null/undefined; map "display: 0" -> "none" */
+function normalizeOneComponent(cmp: any) {
+  if (!cmp?.getStyle) return;
+  const style = { ...(cmp.getStyle() || {}) } as Record<string, any>;
+  let changed = false;
+
+  for (const key of Object.keys(style)) {
+    const v = style[key];
+    if (v == null) {
+      delete style[key];
+      changed = true;
+      continue;
+    }
+    if (typeof v !== "string") {
+      style[key] = String(v);
+      changed = true;
+    }
+    if (typeof style[key] === "string") {
+      const trimmed = (style[key] as string).trim();
+      if (trimmed !== style[key]) {
+        style[key] = trimmed;
+        changed = true;
+      }
+    }
+  }
+
+  // Một số HTML lỗi đặt display="0"
+  if (style.display === "0") {
+    style.display = "none";
+    changed = true;
+  }
+
+  if (changed) {
+    try {
+      cmp.setStyle(style);
+    } catch {
+      /* noop */
+    }
+  }
+}
+
+/** Chuẩn hoá style cho toàn bộ cây component hiện tại */
+function normalizeComponentStyles(editor: any) {
+  try {
+    const root = editor?.DomComponents?.getWrapper?.();
+    if (!root) return;
+    const all: any[] = [root, ...(root.find ? root.find("*") : [])];
+    all.forEach(normalizeOneComponent);
+  } catch {
+    /* noop */
+  }
+}
+
 export default function StepEditor({
   editorRef,
   uploadedRef,
@@ -65,18 +118,22 @@ export default function StepEditor({
 
       const syncInputFromEditor = () => setPreHeader(readPreHeaderText());
 
+      // ---- Handlers ----
       const onCompAddOrUpdate = (m: any) => {
+        // Normalize component nào vừa thêm/cập nhật
+        normalizeOneComponent(m);
         if (isPreHeaderComp(m)) syncInputFromEditor();
       };
+
       const onCompRemove = (m: any) => {
         if (isPreHeaderComp(m)) setPreHeader("");
       };
 
-      editor.on("component:add", onCompAddOrUpdate);
-      editor.on("component:update", onCompAddOrUpdate);
-      editor.on("component:remove", onCompRemove);
+      const onStyleUpdate = (cmp: any) => {
+        normalizeOneComponent(cmp);
+      };
 
-      editor.on("load", () => {
+      const onLoad = () => {
         try {
           syncInputFromEditor();
         } catch {}
@@ -88,7 +145,19 @@ export default function StepEditor({
               : 0;
           if (count === 0) editor.setComponents(DEFAULT_HTML);
         } catch {}
-      });
+
+        // ✅ Sau khi editor load xong, normalize toàn bộ cây
+        setTimeout(() => {
+          normalizeComponentStyles(editor);
+        }, 0);
+      };
+
+      // ---- Bind events ----
+      editor.on("component:add", onCompAddOrUpdate);
+      editor.on("component:update", onCompAddOrUpdate);
+      editor.on("component:remove", onCompRemove);
+      editor.on("component:styleUpdate", onStyleUpdate);
+      editor.on("load", onLoad);
 
       // expose editor
       editorRef.current = editor;
@@ -101,6 +170,15 @@ export default function StepEditor({
     return () => {
       mounted = false;
       try {
+        // cố gắng gỡ event trước khi destroy
+        const ed = editorRef.current;
+        if (ed?.off) {
+          ed.off("component:add");
+          ed.off("component:update");
+          ed.off("component:remove");
+          ed.off("component:styleUpdate");
+          ed.off("load");
+        }
         editorRef.current?.destroy?.();
       } catch {}
       editorRef.current = null;
@@ -131,12 +209,14 @@ export default function StepEditor({
       if (comp) {
         comp.components(safe);
         comp.view?.render?.();
+        normalizeOneComponent(comp); // đảm bảo style sạch với component này
       } else {
         ed.addComponents(PREHEADER_BLOCK, { at: 0 });
         const created = (ed.getWrapper()?.find?.("#pre-header") ?? [])[0];
         if (created) {
           created.components(safe);
           created.view?.render?.();
+          normalizeOneComponent(created);
         }
       }
     } catch {
